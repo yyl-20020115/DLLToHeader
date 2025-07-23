@@ -5,6 +5,10 @@ namespace SharpDemangler.Microsoft;
 public class SymbolNode : Node
 {
     public QualifiedNameNode Name;
+    public int Ordinal = 0;
+    public string Text { get; protected set; } =string.Empty;
+
+    public void SetText(string text) => this.Text = text;
 
     public SymbolNode(NodeKind kind) : base(kind)
     {

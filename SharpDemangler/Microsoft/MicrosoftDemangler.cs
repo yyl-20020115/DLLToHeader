@@ -1421,9 +1421,11 @@ public class MicrosoftDemangler
     }
     public SymbolNode Parse(ref StringView mangledName)
     {
+        var text = mangledName;
         if (mangledName.StartsWith("??@"))
         {
             SymbolNode s = new SymbolNode(NodeKind.Md5Symbol);
+            s.SetText(text);
             s.Name = SynthesizeQualifiedName(mangledName);
             return s;
         }
@@ -1432,6 +1434,7 @@ public class MicrosoftDemangler
         {
             Node name= DemangleSimpleName(ref mangledName, true);
             SymbolNode s = new SymbolNode(NodeKind.Identifier);
+            s.SetText(text);
             s.Name = new QualifiedNameNode();
             s.Name.Components = new NodeArrayNode();
             s.Name.Components.Nodes = [name];
@@ -1443,6 +1446,7 @@ public class MicrosoftDemangler
         SymbolNode si = DemangleSpecialIntrinsic(ref mangledName);
         if (si != null)
         {
+            si.SetText(text);
             return si;
         }
 
@@ -1453,6 +1457,7 @@ public class MicrosoftDemangler
         SymbolNode symbol = DemangleEncodedSymbol(ref mangledName, qn);
         if (symbol != null)
         {
+            symbol.SetText(text);
             symbol.Name = qn;
         }
 
