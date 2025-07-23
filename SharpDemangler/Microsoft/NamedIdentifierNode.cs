@@ -5,7 +5,7 @@ namespace SharpDemangler.Microsoft;
 public class NamedIdentifierNode : IdentifierNode
 {
     public StringView Name;
-
+    public Node Scope;
     public NamedIdentifierNode() : base(NodeKind.NamedIdentifier)
     {
     }

@@ -1,51 +1,43 @@
 ﻿using PE_Parser;
 using SharpDemangler.Microsoft;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 
 namespace DLLToHeader;
 
 public class Program
 {
-    //public class NameEqualtyComparer : IEqualityComparer<QualifiedNameNode>
-    //{
-    //    public bool Equals(QualifiedNameNode? x, QualifiedNameNode? y)
-    //        => (x is null || y is null) || (x is not null && y is not null && x.Equals(y));
-
-    //    public int GetHashCode([DisallowNull] QualifiedNameNode obj) => obj.GetHashCode();
-    //}
-
-    public static NodeArrayNode GetNamespacePart(QualifiedNameNode node) 
-        => GetNamespacePart(node.Components);
-
-    public static NodeArrayNode GetNamespacePart(NodeArrayNode node)
+    public static NodeArrayNode ExtractNamespacePart(NodeArrayNode node)
     {
-        List<Node> results = [];
-        for(int i = 0; i < node.Nodes.Length; i++)
-        {
-            Node n = node.Nodes[i];
-            if(n is NamedIdentifierNode name)
-            {
-                results.Add(n);
-            }
-
-        }
-        
-        return new NodeArrayNode { Kind = NodeKind.NodeArray, Nodes = [.. results] };
-    }
-    public static NodeArrayNode GetClassPart(NodeArrayNode node)
-    {
-        List<Node> results = [];
+        int p = -1;
         for (int i = 0; i < node.Nodes.Length; i++)
         {
-            Node n = node.Nodes[i];
-
+            if (node.Nodes[i] is StructorIdentifierNode n)
+            {
+                p = i - 1;
+                break;
+            }
         }
-
-        return new NodeArrayNode { Kind = NodeKind.NodeArray, Nodes = [.. results] };
+        if (p >= 0)
+        {
+            return new NodeArrayNode
+            {
+                Kind = NodeKind.NodeArray,
+                Nodes = [.. node.Nodes.Take(p)]
+            };
+        }
+        else if (node.Nodes.Length == 2)
+        {
+            return new NodeArrayNode
+            {
+                Kind = NodeKind.NodeArray,
+                Nodes = [node.Nodes[0]]
+            };
+        }
+        return [];
     }
 
-    public static int GenerateLibFile(string libfile,string deffile)
+
+    public static int GenerateLibFile(string libfile, string deffile)
     {
         if (!string.IsNullOrEmpty(libfile) && File.Exists(deffile))
         {
@@ -59,11 +51,11 @@ public class Program
             {
                 Console.WriteLine(ex.Message);
             }
-            
+
         }
         return -1;
     }
-    public static bool GenerateDefFile(string deffile, List<SymbolNode> asts, bool use_oridinal  = false)
+    public static bool GenerateDefFile(string deffile, List<SymbolNode> asts, bool use_oridinal = false)
     {
         if (!string.IsNullOrEmpty(deffile))
         {
@@ -92,22 +84,73 @@ public class Program
         return false;
     }
 
+    public class NodeArrayNodeComparer : IComparer<NodeArrayNode>
+    {
+        public int Compare(NodeArrayNode? x, NodeArrayNode? y) 
+            => (x is null || y is null) ? 0 : y.Nodes.Length - x.Nodes.Length;
+    }
+
+    public static NodeArrayNode GetNamespacePart(NodeArrayNode node, List<NodeArrayNode> namespaces)
+    {
+        for (int i = 0; i < namespaces.Count; i++)
+        {
+            if (namespaces[i].Nodes.Length <= node.Nodes.Length)
+            {
+                var taken = node.Nodes.Take(namespaces[i].Nodes.Length);
+                if (Enumerable.SequenceEqual(namespaces[i].Nodes, taken))
+                {
+                    return
+                        new NodeArrayNode()
+                        {
+                            Kind = NodeKind.NodeArray,
+                            Nodes = [..namespaces[i].Nodes]
+                        };
+                }
+            }
+        }
+        return [];
+    }
+
+    public static NodeArrayNode GetClassPart(NodeArrayNode node,List<NodeArrayNode> namespaces)
+    {
+        for (int i = 0; i < namespaces.Count; i++)
+        {
+            if(namespaces[i].Nodes.Length<= node.Nodes.Length)
+            {
+                var taken = node.Nodes.Take(namespaces[i].Nodes.Length);
+                if (Enumerable.SequenceEqual(namespaces[i].Nodes, taken))
+                {
+                    return
+                        new NodeArrayNode()
+                        {
+                            Kind = NodeKind.NodeArray,
+                            Nodes = [.. node.Nodes.Skip(namespaces[i].Nodes.Length).Take(1)]
+                        };
+                }
+            }
+        }
+        return [];
+    }
     public static int Main(string[] args)
     {
         if (args.Length < 1)
         {
             Console.WriteLine("DLLToHeader <File.dll> [Header.h]");
+            return 0;
         }
 
         var dllfile = args[0];
         var deffile = args.Length > 1 ? args[1] : Path.ChangeExtension(dllfile, ".def");
-        var libfile = args.Length > 2 ? args[2] : Path.ChangeExtension(dllfile, ".lib"); 
+        var libfile = args.Length > 2 ? args[2] : Path.ChangeExtension(dllfile, ".lib");
+        var hdrfile = args.Length > 3 ? args[3] : Path.ChangeExtension(dllfile, ".h");
 
         var header = Misc.LoadFrom(args[0]);
         var asts = new List<SymbolNode>();
         var class_bases = new Dictionary<QualifiedNameNode, HashSet<QualifiedNameNode>>();
+        var namespace_classes = new Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>>();
 
-        var namespace_classes = new Dictionary<NodeArrayNode, HashSet<SymbolNode>>();
+        var variables = new HashSet<SymbolNode>();
+        var functions = new HashSet<SymbolNode>();
 
         if (header.exportDir.exportAddr_name_t != null)
         {
@@ -118,7 +161,7 @@ public class Program
                 var ast = demangler.Parse(export.names ?? "");
                 if (ast != null)
                 {
-                    ast.Ordinal = i+1;
+                    ast.Ordinal = i + 1;
                     asts.Add(ast);
                     var text = demangler.Format(ast);
                     Console.WriteLine($"{text}");
@@ -129,66 +172,125 @@ public class Program
                 }
             }
 
-            foreach (var ast in asts)
+        }
+        foreach (var ast in asts)
+        {
+            switch (ast.Kind)
             {
-                switch (ast.Kind)
-                {
-                    case NodeKind.VariableSymbol:
+                case NodeKind.FunctionSymbol:
+                    {
+                        var astname = ast.Name.Components;
+                        if (ast is VariableSymbolNode vn && vn.sc == StorageClass.FunctionLocalStatic)
                         {
-                            var @namespace = GetNamespacePart(ast.Name);
-                            if (namespace_classes.TryGetValue(@namespace, out var set))
-                            {
-                                //null means self
-                                set.Add(ast);
-                            }
-                            else
-                            {
-                                namespace_classes[@namespace] = [ast];
-                            }
-
+                            astname ??= vn.LocalFunctionName?.Components;
+                            astname ??= ast.Name.Components;
                         }
-                        break;
-                    case NodeKind.FunctionSymbol:
-                        {
-                            var @namespace = GetNamespacePart(ast.Name);
-                            if (namespace_classes.TryGetValue(@namespace, out var set))
-                            {
-                                //null means self
-                                set.Add(ast);
-                            }
-                            else
-                            {
-                                namespace_classes[@namespace] = [ast];
-                            }
-                        }
-                        break;
-                    case NodeKind.SpecialTableSymbol:
-                        //
-                        if (ast is SpecialTableSymbolNode sp)
-                        {
-                            if (class_bases.TryGetValue(sp.Name, out var set))
-                            {
-                                //null means self
-                                set.Add(sp.TargetName);
-                            }
-                            else
-                            {
-                                class_bases[sp.Name] = [sp.TargetName];
-                            }
-
-                        }
-                        break;
-                    case NodeKind.Identifier://common function or variable
-                        break;
-                }
+                        var @namespace = ExtractNamespacePart(astname);
+                        if (@namespace.Nodes.Length > 0)
+                            namespace_classes[@namespace] = [];
+                    }
+                    break;
             }
         }
-        //_T("//头文件,由Make Export Header自动生成\r\n")
-        //            _T("#pragma once\r\n\r\n")
-        //            _T("#define DLLIMPORT __declspec(dllimport)\r\n\r\n")
-        //            _T("#pragma comment(lib,\"%s.lib\")\r\n\r\n"), (LPCTSTR)m_strTitle );
+        var namespaces = namespace_classes.Keys.ToList();
+        namespaces.Sort(new NodeArrayNodeComparer());
 
-        if(GenerateDefFile(deffile, asts, true))
+        foreach (var ast in asts)
+        {
+            switch (ast.Kind)
+            {
+                case NodeKind.VariableSymbol:
+                case NodeKind.FunctionSymbol:
+                    {
+                        var astname = ast.Name.Components;
+                        if (ast is VariableSymbolNode vn && vn.sc == StorageClass.FunctionLocalStatic)
+                        {
+                            astname ??= vn.LocalFunctionName?.Components;
+                            astname ??= ast.Name.Components;
+                        }
+
+                        var @namespace = GetNamespacePart(astname,namespaces);
+                        if (@namespace.Nodes.Length > 0)
+                        {
+                            var @class = GetClassPart(astname, namespaces);
+
+                            @class ??= new NodeArrayNode() { Kind = NodeKind.Identifier, Nodes = [] };
+                            if (namespace_classes.TryGetValue(@namespace, out var set))
+                            {
+                                //null means self
+                                //if (@class != null)
+                                if (set.TryGetValue(@class, out var list))
+                                {
+                                    list.Add(ast);
+                                }
+                                else
+                                {
+                                    set[@class] = [ast];
+                                }
+                            }
+                        }
+                        if (ast.Kind == NodeKind.VariableSymbol)
+                        {
+                            variables.Add(ast);
+                        }
+                        else
+                        {
+                            functions.Add(ast);
+                        }
+                    }
+                    break;
+                case NodeKind.SpecialTableSymbol:
+                    if (ast is SpecialTableSymbolNode sp)
+                    {
+                        if (class_bases.TryGetValue(sp.Name, out var set))
+                        {
+                            //null means self
+                            set.Add(sp.TargetName);
+                        }
+                        else
+                        {
+                            class_bases[sp.Name] = [sp.TargetName];
+                        }
+                    }
+                    break;
+                case NodeKind.Identifier://common function or variable
+                                         //unable to generate c++/c header file
+                    break;
+            }
+        }
+        using var writer = new StreamWriter(hdrfile);
+        writer.WriteLine("#pragma once");
+        writer.WriteLine("#define DLLIMPORT __declspec(dllimport)");
+        writer.WriteLine($"#pragma comment(lib,\"{libfile}\")");
+
+        foreach(var ns in namespace_classes)
+        {
+            var q = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = ns.Key };
+            var v = q.ToString();
+            writer.WriteLine($"namespace {v}");
+            writer.WriteLine("{");
+            foreach(var cs in ns.Value)
+            {
+                var q2 = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = cs.Key };
+                var v2 = q2.ToString();
+                writer.WriteLine($"\tclass {v2}");
+                writer.WriteLine("\t{");
+
+                //cs.Value.Where(ks => ks is VariableSymbolNode vn && vn.sc == StorageClass.FunctionLocalStatic);
+
+                //cs.Value.Where(ks => ks is FunctionSymbolNode fn && fn.Signature.FunctionClass == FuncClass.Public);
+
+                
+                foreach(var ts in cs.Value)
+                {
+                    writer.WriteLine($"\t\t{ts};");
+                }
+                writer.WriteLine("\t};");
+            }
+            writer.WriteLine("}");
+        }
+
+        if (GenerateDefFile(deffile, asts, true))
         {
             GenerateLibFile(libfile, deffile);
         }

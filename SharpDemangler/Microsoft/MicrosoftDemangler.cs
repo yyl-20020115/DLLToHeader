@@ -1560,6 +1560,7 @@ public class MicrosoftDemangler
 
         string result = os.ToString();
         identifier.Name = result;
+        identifier.Scope = scope;
         return identifier;
     }
 

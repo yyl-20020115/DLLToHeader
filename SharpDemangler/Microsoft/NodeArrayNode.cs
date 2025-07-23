@@ -40,11 +40,11 @@ public class NodeArrayNode : Node, IEnumerable<Node>
     {
         Output(os, flags, ", ");
     }
-    public override int GetHashCode() 
+    public override int GetHashCode()
         => this.Nodes.Aggregate(0, (current, n) => current ^ n.GetHashCode());
-    public override bool Equals(object obj) => obj is NodeArrayNode other &&
-               this.Nodes.Length == other.Nodes.Length &&
-               this.Nodes.Zip(other.Nodes, (a, b) => a.Equals(b)).All(x => x) &&
-               base.Equals(other);
+    public override bool Equals(object obj) => obj is NodeArrayNode other
+        && (this.Nodes == null && other.Nodes == null ||
+               Enumerable.SequenceEqual(this.Nodes, other.Nodes))
+               ;
 
 }

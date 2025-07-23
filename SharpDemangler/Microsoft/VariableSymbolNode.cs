@@ -1,4 +1,5 @@
 ﻿using SharpDemangler.Common;
+using System.Linq;
 
 namespace SharpDemangler.Microsoft;
 
@@ -6,6 +7,8 @@ public class VariableSymbolNode : SymbolNode
 {
     public StorageClass sc = StorageClass.None;
     public TypeNode Type = null;
+    public QualifiedNameNode LocalFunctionName
+        => ((((this.Name.Components.FirstOrDefault() as NamedIdentifierNode)?.Scope) as FunctionSymbolNode)?.Name);
 
     public VariableSymbolNode() : base(NodeKind.VariableSymbol)
     {
