@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "DLLToHeader": {
+      "commandName": "Project",
+      "commandLineArgs": "duilib.dll",
+      "workingDirectory": "d:\\working\\duilib_crack\\new"
+    }
+  }
+}
