@@ -11,7 +11,7 @@ public class Program
         int p = -1;
         for (int i = 0; i < node.Nodes.Length; i++)
         {
-            if (node.Nodes[i] is StructorIdentifierNode n)
+            if (node.Nodes[i] is StructorIdentifierNode n && !n.IsDestructor)
             {
                 p = i - 1;
                 break;
@@ -37,13 +37,13 @@ public class Program
     }
 
 
-    public static int GenerateLibFile(string libfile, string deffile)
+    public static int GenerateLibFile(string libfile, string deffile, string machine = "x86")
     {
         if (!string.IsNullOrEmpty(libfile) && File.Exists(deffile))
         {
             try
             {
-                var p = Process.Start("link.exe", $"/LIB /DEF:{deffile} /OUT:{libfile}");
+                var p = Process.Start("link.exe", $"/LIB /DEF:{deffile} /OUT:{libfile} /MACHINE:{machine}");
                 p.WaitForExit();
                 return p.ExitCode;
             }
@@ -171,6 +171,26 @@ public class Program
         }
         return [];
     }
+    public static NodeArrayNode GetLeftFunctionPart(NodeArrayNode node, List<NodeArrayNode> namespaces)
+    {
+        for (int i = 0; i < namespaces.Count; i++)
+        {
+            if (namespaces[i].Nodes.Length <= node.Nodes.Length)
+            {
+                var taken = node.Nodes.Take(namespaces[i].Nodes.Length);
+                if (Enumerable.SequenceEqual(namespaces[i].Nodes, taken))
+                {
+                    return
+                        new NodeArrayNode()
+                        {
+                            Kind = NodeKind.NodeArray,
+                            Nodes = [.. node.Nodes.Skip(namespaces[i].Nodes.Length)]
+                        };
+                }
+            }
+        }
+        return [];
+    }
 
     public static int Main(string[] args)
     {
@@ -189,7 +209,7 @@ public class Program
         var asts = new List<SymbolNode>();
         var class_bases = new Dictionary<NodeArrayNode, HashSet<QualifiedNameNode>>();
         var namespace_classes = new Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>>();
-
+        var global_functions = new Dictionary<NodeArrayNode, SymbolNode>();
         var variables = new HashSet<SymbolNode>();
         var functions = new HashSet<SymbolNode>();
 
@@ -249,18 +269,32 @@ public class Program
                             astname = vn.LocalFunctionName?.Components;
                             astname ??= ast.Name.Components;
                         }
+                        else if (ast is FunctionSymbolNode fc)
+                        {
+                            if (FuncClass.Global == (fc.Signature.FunctionClass & FuncClass.Global))
+                            {
+                                global_functions[astname] = ast;
+                                ast.Name.Components = GetLeftFunctionPart(ast.Name.Components, namespaces);
+                            }
+                            else
+                            {
+                            }
+                        }
 
                         var @namespace = GetNamespacePart(astname, namespaces);
                         if (@namespace.Nodes.Length >= 0)
                         {
                             var @class = GetClassPart(astname, namespaces);
                             var @name = GetLeftClassPart(astname, namespaces);
-                            ast.Name.Components = @name;
-                            
-                            if(ast is FunctionSymbolNode fn)
+                            if(ast is FunctionSymbolNode fc && FuncClass.Global != (fc.Signature.FunctionClass & FuncClass.Global))
+                            {
+                                ast.Name.Components = @name;
+                            }
+
+                            if (ast is FunctionSymbolNode fn)
                             {
                                 //remove __thiscall
-                                fn.Signature.CallConvention&= ~CallingConv.Thiscall;
+                                fn.Signature.CallConvention &= ~CallingConv.Thiscall;
                             }
                             @class ??= new NodeArrayNode() { Kind = NodeKind.Identifier, Nodes = [] };
                             if (namespace_classes.TryGetValue(@namespace, out var set))
@@ -294,7 +328,7 @@ public class Program
                         if (astname?.LastOrDefault()?.ToString() == "`vftable'")
                         {
                             astname.Nodes
-                                = astname.Take(astname.Nodes.Length - 1).ToArray();
+                                = [.. astname.Take(astname.Nodes.Length - 1)];
                         }
                         if (class_bases.TryGetValue(astname, out var set))
                         {
@@ -322,49 +356,64 @@ public class Program
             var q = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = ns.Key };
             writer.WriteLine($"namespace {q}");
             writer.WriteLine("{");
+
             foreach (var ks in ns.Value)
             {
-                var q2 = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = ks.Key };
-                writer.WriteLine($"\tclass {q2};");
+                var full = new NodeArrayNode
+                {
+                    Kind = NodeKind.NodeArray,
+                    Nodes = [.. ns.Key.Nodes, .. ks.Key.Nodes]
+                };
+                if (!global_functions.ContainsKey(full))
+                {
+                    var q2 = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = ks.Key };
+                    writer.WriteLine($"\tclass {q2};");
+                }
 
             }
             foreach (var cs in ns.Value)
             {
                 var q2 = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = cs.Key };
-                writer.WriteLine($"\tclass {q2}");
                 var full = new NodeArrayNode
                 {
                     Kind = NodeKind.NodeArray,
                     Nodes = [.. ns.Key.Nodes, .. cs.Key.Nodes]
                 };
-                if (class_bases.TryGetValue(full,out var deps) && deps.Count>0)
+                if (!global_functions.ContainsKey(full))
                 {
-                    var any = false;
-                    foreach(var dep in deps)
+                    writer.WriteLine($"\tclass {q2}");
+                    if (class_bases.TryGetValue(full, out var deps) && deps.Count > 0)
                     {
-                        if (dep != null)
+                        var any = false;
+                        foreach (var dep in deps)
                         {
-                            writer.Write("\t\t");
-                            writer.Write(any?", ":": ");
-                            writer.WriteLine(dep);
-                            any = true;
+                            if (dep != null)
+                            {
+                                writer.Write("\t\t");
+                                writer.Write(any ? ", " : ": ");
+                                writer.WriteLine(dep);
+                                any = true;
+                            }
                         }
                     }
 
+                    writer.WriteLine("\t{");
+
+                    foreach (var ts in cs.Value)
+                    {
+                        writer.WriteLine($"\t\t{ts};");
+
+                    }
+                    writer.WriteLine("\t};");
                 }
-
-                writer.WriteLine("\t{");
-
-                //cs.Value.Where(ks => ks is VariableSymbolNode vn && vn.sc == StorageClass.FunctionLocalStatic);
-                //cs.Value.Where(ks => ks is FunctionSymbolNode fn && fn.Signature.FunctionClass == FuncClass.Public);
-
-
-                foreach (var ts in cs.Value)
+                else
                 {
-                    writer.WriteLine($"\t\t{ts};");
-
+                    //function:
+                    foreach (var ts in cs.Value)
+                    {
+                        writer.WriteLine($"\t{ts};");
+                    }
                 }
-                writer.WriteLine("\t};");
             }
             writer.WriteLine("}");
         }
