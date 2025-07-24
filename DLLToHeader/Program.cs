@@ -265,7 +265,7 @@ public class Program
         }
 
     }
-    public static int GenerateLibFile(string libfile, string deffile, string machine = "x86")
+    public static int GenerateLibFile(string libfile, string deffile, string machine/* = "x86"*/)
     {
         if (!string.IsNullOrEmpty(libfile) && File.Exists(deffile))
         {
@@ -396,14 +396,19 @@ public class Program
     {
         if (args.Length < 1)
         {
-            Console.WriteLine("DLLToHeader <DllFile.dll> [HdrFile.h] [DefFile.def] [LibFile.lib]");
+            Console.WriteLine("DLLToHeader <DllFile.dll> [HdrFile.h] [DefFile.def] [LibFile.lib] [machine:x86/x64]");
             return 0;
         }
 
         var dllfile = args[0];
-        var hdrfile = args.Length > 1 ? args[1] : Path.ChangeExtension(dllfile, ".h");
-        var deffile = args.Length > 2 ? args[2] : Path.ChangeExtension(dllfile, ".def");
-        var libfile = args.Length > 3 ? args[3] : Path.ChangeExtension(dllfile, ".lib");
+        var hdrfile = args.Length > 1 ? args.FirstOrDefault(a => a.ToLower().EndsWith(".h")) : null;
+        hdrfile ??= Path.ChangeExtension(dllfile, ".h");
+        var deffile = args.Length > 1 ? args.FirstOrDefault(a => a.ToLower().EndsWith(".def")) : null;
+        deffile ??= Path.ChangeExtension(dllfile, ".def");
+        var libfile = args.Length > 1 ? args.FirstOrDefault(a => a.ToLower().EndsWith(".lib")) : null;
+        libfile ??= Path.ChangeExtension(dllfile, ".lib");
+        var machine = args.Length > 1 ? args.FirstOrDefault(a => a.ToLower().StartsWith("machine:"))?.Substring(8) : null;
+        machine ??= "x64";
 
         var header = Misc.LoadFrom(args[0]);
         var asts = new List<SymbolNode>();
@@ -421,7 +426,7 @@ public class Program
 
         if (GenerateDefFile(deffile, asts, true))
         {
-            GenerateLibFile(libfile, deffile);
+            GenerateLibFile(libfile, deffile, machine);
         }
         return 0;
     }
