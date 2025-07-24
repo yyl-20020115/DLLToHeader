@@ -122,45 +122,42 @@ public class Program
         }
         return [];
     }
-    public static List<NodeArrayNode> ExtractExports(ExportAddressName[]? exports,List<SymbolNode> asts,
+    public static List<NodeArrayNode> ExtractExports(ExportAddressName[]? exports, List<SymbolNode> asts,
         Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>> namespace_classes)
     {
-        if(exports == null)
+        if (exports != null)
         {
-            if (exports != null)
+            for (var i = 0; i < exports.Length; i++)
             {
-                for (var i = 0; i < exports.Length; i++)
+                var demangler = new MicrosoftDemangler();
+                var export = exports[i];
+                var ast = demangler.Parse(export.names ?? "");
+                if (ast != null)
                 {
-                    var demangler = new MicrosoftDemangler();
-                    var export = exports[i];
-                    var ast = demangler.Parse(export.names ?? "");
-                    if (ast != null)
-                    {
-                        ast.Ordinal = i + 1;
-                        asts.Add(ast);
-                    }
+                    ast.Ordinal = i + 1;
+                    asts.Add(ast);
                 }
-
             }
 
-            foreach (var ast in asts)
+        }
+
+        foreach (var ast in asts)
+        {
+            switch (ast.Kind)
             {
-                switch (ast.Kind)
-                {
-                    case NodeKind.FunctionSymbol:
+                case NodeKind.FunctionSymbol:
+                    {
+                        var astname = ast.Name.Components;
+                        if (ast is VariableSymbolNode vn && vn.sc == StorageClass.FunctionLocalStatic)
                         {
-                            var astname = ast.Name.Components;
-                            if (ast is VariableSymbolNode vn && vn.sc == StorageClass.FunctionLocalStatic)
-                            {
-                                astname ??= vn.LocalFunctionName?.Components;
-                                astname ??= ast.Name.Components;
-                            }
-                            var @namespace = ExtractNamespacePart(astname);
-                            if (@namespace.Nodes.Length > 0)
-                                namespace_classes[@namespace] = [];
+                            astname ??= vn.LocalFunctionName?.Components;
+                            astname ??= ast.Name.Components;
                         }
-                        break;
-                }
+                        var @namespace = ExtractNamespacePart(astname);
+                        if (@namespace.Nodes.Length > 0)
+                            namespace_classes[@namespace] = [];
+                    }
+                    break;
             }
         }
         var namespaces = namespace_classes.Keys.ToList();
@@ -319,80 +316,80 @@ public class Program
         Dictionary<NodeArrayNode, SymbolNode> global_functions,
         Dictionary<NodeArrayNode, HashSet<QualifiedNameNode>> class_bases,
         string hdrfile, string libfile)
+    {
+        using var writer = new StreamWriter(hdrfile);
+        writer.WriteLine("#pragma once");
+        writer.WriteLine("#define DLLIMPORT __declspec(dllimport)");
+        writer.WriteLine($"#pragma comment(lib,\"{libfile}\")");
+
+        foreach (var ns in namespace_classes)
         {
-            using var writer = new StreamWriter(hdrfile);
-            writer.WriteLine("#pragma once");
-            writer.WriteLine("#define DLLIMPORT __declspec(dllimport)");
-            writer.WriteLine($"#pragma comment(lib,\"{libfile}\")");
+            var q = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = ns.Key };
+            writer.WriteLine($"namespace {q}");
+            writer.WriteLine("{");
 
-            foreach (var ns in namespace_classes)
+            foreach (var ks in ns.Value)
             {
-                var q = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = ns.Key };
-                writer.WriteLine($"namespace {q}");
-                writer.WriteLine("{");
-
-                foreach (var ks in ns.Value)
+                var full = new NodeArrayNode
                 {
-                    var full = new NodeArrayNode
-                    {
-                        Kind = NodeKind.NodeArray,
-                        Nodes = [.. ns.Key.Nodes, .. ks.Key.Nodes]
-                    };
-                    if (!global_functions.ContainsKey(full))
-                    {
-                        var q2 = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = ks.Key };
-                        writer.WriteLine($"\tclass {q2};");
-                    }
-
+                    Kind = NodeKind.NodeArray,
+                    Nodes = [.. ns.Key.Nodes, .. ks.Key.Nodes]
+                };
+                if (!global_functions.ContainsKey(full))
+                {
+                    var q2 = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = ks.Key };
+                    writer.WriteLine($"\tclass {q2};");
                 }
-                foreach (var cs in ns.Value)
+
+            }
+            foreach (var cs in ns.Value)
+            {
+                var q2 = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = cs.Key };
+                var full = new NodeArrayNode
                 {
-                    var q2 = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = cs.Key };
-                    var full = new NodeArrayNode
+                    Kind = NodeKind.NodeArray,
+                    Nodes = [.. ns.Key.Nodes, .. cs.Key.Nodes]
+                };
+                if (!global_functions.ContainsKey(full))
+                {
+                    writer.WriteLine($"\tclass {q2}");
+                    if (class_bases.TryGetValue(full, out var deps) && deps.Count > 0)
                     {
-                        Kind = NodeKind.NodeArray,
-                        Nodes = [.. ns.Key.Nodes, .. cs.Key.Nodes]
-                    };
-                    if (!global_functions.ContainsKey(full))
-                    {
-                        writer.WriteLine($"\tclass {q2}");
-                        if (class_bases.TryGetValue(full, out var deps) && deps.Count > 0)
+                        var any = false;
+                        foreach (var dep in deps)
                         {
-                            var any = false;
-                            foreach (var dep in deps)
+                            if (dep != null)
                             {
-                                if (dep != null)
-                                {
-                                    writer.Write("\t\t");
-                                    writer.Write(any ? ", " : ": ");
-                                    writer.WriteLine(dep);
-                                    any = true;
-                                }
+                                writer.Write("\t\t");
+                                writer.Write(any ? ", " : ": ");
+                                writer.WriteLine(dep);
+                                any = true;
                             }
                         }
-
-                        writer.WriteLine("\t{");
-
-                        foreach (var ts in cs.Value)
-                        {
-                            writer.WriteLine($"\t\t{ts};");
-
-                        }
-                        writer.WriteLine("\t};");
                     }
-                    else
+
+                    writer.WriteLine("\t{");
+
+                    foreach (var ts in cs.Value)
                     {
-                        //function:
-                        foreach (var ts in cs.Value)
-                        {
-                            writer.WriteLine($"\t{ts};");
-                        }
+                        writer.WriteLine($"\t\t{ts};");
+
+                    }
+                    writer.WriteLine("\t};");
+                }
+                else
+                {
+                    //function:
+                    foreach (var ts in cs.Value)
+                    {
+                        writer.WriteLine($"\t{ts};");
                     }
                 }
-                writer.WriteLine("}");
             }
-
+            writer.WriteLine("}");
         }
+
+    }
 
 
     public static int Main(string[] args)
@@ -417,7 +414,7 @@ public class Program
         var functions = new HashSet<SymbolNode>();
 
         var namespaces = ExtractExports(header.exportDir.exportAddr_name_t, asts, namespace_classes);
-        
+
         CompileAsts(namespace_classes, global_functions, class_bases, variables, functions, namespaces, asts);
 
         GenerateHeaderFile(namespace_classes, global_functions, class_bases, hdrfile, libfile);
