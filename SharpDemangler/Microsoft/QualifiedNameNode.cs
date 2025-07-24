@@ -7,6 +7,10 @@ public class QualifiedNameNode : Node
 {
     public NodeArrayNode Components;
 
+    public static QualifiedNameNode From(NodeArrayNode nodes)
+    {
+       return new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = nodes };
+    }
     public QualifiedNameNode() : base(NodeKind.QualifiedName)
     {
     }

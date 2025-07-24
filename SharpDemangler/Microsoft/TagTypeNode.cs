@@ -5,7 +5,7 @@ namespace SharpDemangler.Microsoft;
 public class TagTypeNode : TypeNode
 {
     public QualifiedNameNode QualifiedName = null;
-    public readonly TagKind Tag;
+    public TagKind Tag;
 
     public TagTypeNode(TagKind kind) : base(NodeKind.TagType)
     {
@@ -30,8 +30,13 @@ public class TagTypeNode : TypeNode
                 case TagKind.Enum:
                     os.Append("enum");
                     break;
+                default:
+                    break;
             }
-            os.Append(' ');
+            if (this.Tag!= TagKind.None)
+            {
+                os.Append(' ');
+            }
         }
         QualifiedName.Output(os, flags);
         OutputQualifiers(os, Quals, true, false);
