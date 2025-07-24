@@ -10,15 +10,17 @@ public class Program
     public static NodeArrayNode ExtractNamespacePart(NodeArrayNode node)
     {
         int p = -1;
+        var any_structor = false;
         for (int i = 0; i < node.Nodes.Length; i++)
         {
-            if (node.Nodes[i] is StructorIdentifierNode n && !n.IsDestructor)
+            if (node.Nodes[i] is StructorIdentifierNode n)
             {
+                any_structor = true;
                 p = i - 1;
                 break;
             }
         }
-        if (p >= 0)
+        if (any_structor)
         {
             return new NodeArrayNode
             {
@@ -170,6 +172,7 @@ public class Program
         Dictionary<NodeArrayNode, HashSet<QualifiedNameNode>> class_bases,
         HashSet<SymbolNode> variables,
         HashSet<SymbolNode> functions,
+        List<SymbolNode> plains,
         List<NodeArrayNode> namespaces,
         List<SymbolNode> asts)
     {
@@ -203,6 +206,12 @@ public class Program
                         {
                             var @class = GetClassPart(astname, namespaces);
                             var @name = GetLeftClassPart(astname, namespaces);
+                            if (@name.Nodes.Length == 0)
+                            {
+                                @name = new NodeArrayNode { Kind = NodeKind.NodeArray, Nodes = [astname.Nodes[^1]] };
+                                @class = new NodeArrayNode { Kind = NodeKind.NodeArray, Nodes = [.. astname.Nodes.Take(astname.Nodes.Length - 1)] };
+
+                            }
                             if (ast is FunctionSymbolNode fc && FuncClass.Global != (fc.Signature.FunctionClass & FuncClass.Global))
                             {
                                 ast.Name.Components = @name;
@@ -260,6 +269,7 @@ public class Program
                     break;
                 case NodeKind.Identifier://common function or variable
                                          //unable to generate c++/c header file
+                    plains.Add(ast);
                     break;
             }
         }
@@ -315,13 +325,25 @@ public class Program
         Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>> namespace_classes,
         Dictionary<NodeArrayNode, SymbolNode> global_functions,
         Dictionary<NodeArrayNode, HashSet<QualifiedNameNode>> class_bases,
+        List<SymbolNode> plains,
         string hdrfile, string libfile)
     {
         using var writer = new StreamWriter(hdrfile);
         writer.WriteLine("#pragma once");
         writer.WriteLine("#define DLLIMPORT __declspec(dllimport)");
         writer.WriteLine($"#pragma comment(lib,\"{libfile}\")");
-
+        
+        if (plains.Count > 0)
+        {
+            writer.WriteLine("extern \"C\"");
+            writer.WriteLine("{");
+            foreach (var ast in plains)
+            {
+                writer.WriteLine($"\tDLLIMPORT void {ast}(void);");
+            }
+            writer.WriteLine("}");
+            writer.WriteLine();
+        }
         foreach (var ns in namespace_classes)
         {
             var q = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = ns.Key };
@@ -340,7 +362,6 @@ public class Program
                     var q2 = new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = ks.Key };
                     writer.WriteLine($"\tclass {q2};");
                 }
-
             }
             foreach (var cs in ns.Value)
             {
@@ -352,7 +373,7 @@ public class Program
                 };
                 if (!global_functions.ContainsKey(full))
                 {
-                    writer.WriteLine($"\tclass {q2}");
+                    writer.WriteLine($"\tclass DLLIMPORT {q2}");
                     if (class_bases.TryGetValue(full, out var deps) && deps.Count > 0)
                     {
                         var any = false;
@@ -370,11 +391,87 @@ public class Program
 
                     writer.WriteLine("\t{");
 
-                    foreach (var ts in cs.Value)
+                    var publics = cs.Value.Where(v => v is FunctionSymbolNode fs && (fs.Signature.FunctionClass & FuncClass.Public) != 0).ToArray();
+                    var protecteds = cs.Value.Where(v => v is FunctionSymbolNode fs && (fs.Signature.FunctionClass & FuncClass.Protected) != 0).ToArray();
+                    var privates = cs.Value.Where(v => v is FunctionSymbolNode fs && (fs.Signature.FunctionClass & FuncClass.Private) != 0).ToArray();
+                    var variables = cs.Value.Where(v => v is VariableSymbolNode vs).ToList();
+                    
+                    if (variables.Count > 0)
                     {
-                        writer.WriteLine($"\t\t{ts};");
+                        var values = cs.Value.ToList();
+                        var v_function_local = values.Where(v => v is VariableSymbolNode fs && (fs.sc == StorageClass.FunctionLocalStatic)).ToArray();
+                        var v_publics = values.Where(v => v is VariableSymbolNode fs && (fs.sc == StorageClass.PublicStatic)).ToArray();
+                        var v_protecteds = values.Where(v => v is VariableSymbolNode fs && (fs.sc == StorageClass.ProtectedStatic)).ToArray();
+                        var v_privates = values.Where(v => v is VariableSymbolNode fs && (fs.sc & StorageClass.PrivateStatic) != 0 && fs.LocalFunctionName == null).ToArray();
+                        if (v_publics.Length > 0)
+                        {
+                            writer.WriteLine("\tpublic:");
+                            foreach(VariableSymbolNode vs in v_publics)
+                            {
+                                vs.sc = StorageClass.None;
+                                writer.WriteLine($"\t\tstatic {vs};");
+                            }
+                        }
+                        if (v_protecteds.Length > 0)
+                        {
+                            writer.WriteLine("\tprotected:");
+                            foreach (VariableSymbolNode vs in v_protecteds)
+                            {
+                                vs.sc = StorageClass.None;
+                                writer.WriteLine($"\t\tstatic {vs};");
+                            }
+                        }
+                        if (v_privates.Length > 0)
+                        {
+                            writer.WriteLine("\tprivate:");
+                            foreach (VariableSymbolNode vs in v_privates)
+                            {
+                                vs.sc = StorageClass.None;
+                                writer.WriteLine($"\t\tstatic {vs};");
+                            }
+                        }
+                        if (v_function_local.Length > 0)
+                        {
+                            writer.WriteLine("\t//function local static");
+                            foreach (VariableSymbolNode vs in v_function_local)
+                            {
+                                vs.sc = StorageClass.None;
+                                writer.WriteLine($"\t\t//{vs};");
+                            }
+                        }
 
                     }
+                    if (publics.Length > 0)
+                    {
+                        writer.WriteLine("\tpublic:");
+                        foreach (FunctionSymbolNode ts in publics)
+                        {
+                            ts.Signature.FunctionClass&=~FuncClass.Public;
+                            writer.WriteLine($"\t\t{ts};");
+
+                        }
+                    }
+                    if (protecteds.Length > 0)
+                    {
+                        writer.WriteLine("\tprotected:");
+                        foreach (FunctionSymbolNode ts in protecteds)
+                        {
+                            ts.Signature.FunctionClass &= ~FuncClass.Protected;
+                            writer.WriteLine($"\t\t{ts};");
+
+                        }
+                    }
+                    if (privates.Length > 0)
+                    {
+                        writer.WriteLine("\tprivates:");
+                        foreach (FunctionSymbolNode ts in privates)
+                        {
+                            ts.Signature.FunctionClass &= ~FuncClass.Private;
+                            writer.WriteLine($"\t\t{ts};");
+
+                        }
+                    }
+
                     writer.WriteLine("\t};");
                 }
                 else
@@ -387,6 +484,7 @@ public class Program
                 }
             }
             writer.WriteLine("}");
+            writer.WriteLine();
         }
 
     }
@@ -417,12 +515,12 @@ public class Program
         var global_functions = new Dictionary<NodeArrayNode, SymbolNode>();
         var variables = new HashSet<SymbolNode>();
         var functions = new HashSet<SymbolNode>();
-
+        var plains = new List<SymbolNode>();
         var namespaces = ExtractExports(header.exportDir.exportAddr_name_t, asts, namespace_classes);
 
-        CompileAsts(namespace_classes, global_functions, class_bases, variables, functions, namespaces, asts);
+        CompileAsts(namespace_classes, global_functions, class_bases, variables, functions, plains, namespaces, asts);
 
-        GenerateHeaderFile(namespace_classes, global_functions, class_bases, hdrfile, libfile);
+        GenerateHeaderFile(namespace_classes, global_functions, class_bases, plains, hdrfile, libfile);
 
         if (GenerateDefFile(deffile, asts, true))
         {
