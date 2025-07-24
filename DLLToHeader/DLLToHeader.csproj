@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\PE_Parser\PE_Parser.csproj" />
+    <ProjectReference Include="..\PE_Parser\PEParser.csproj" />
     <ProjectReference Include="..\SharpDemangler\SharpDemangler.csproj" />
   </ItemGroup>
 

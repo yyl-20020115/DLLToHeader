@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace PE_Parser;
+namespace PEParser;
 
 public class PEHeader
 {

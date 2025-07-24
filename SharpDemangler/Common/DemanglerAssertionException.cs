@@ -16,8 +16,4 @@ public class DemanglerAssertionException : Exception
     public DemanglerAssertionException(string message, Exception innerException) : base(message, innerException)
     {
     }
-
-    protected DemanglerAssertionException(SerializationInfo info, StreamingContext context) : base(info, context)
-    {
-    }
 }

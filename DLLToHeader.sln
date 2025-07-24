@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DLLToHeader", "DLLToHeader\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpDemangler", "SharpDemangler\SharpDemangler.csproj", "{D99913BC-1B02-4F9B-8D31-21F2F3CAD6D1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PE_Parser", "PE_Parser\PE_Parser.csproj", "{05B2BC57-86C5-EDF2-AAB0-1433E9FC69CE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PEParser", "PE_Parser\PEParser.csproj", "{05B2BC57-86C5-EDF2-AAB0-1433E9FC69CE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

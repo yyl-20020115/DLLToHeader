@@ -1,4 +1,4 @@
-﻿namespace PE_Parser;
+﻿namespace PEParser;
 
 public class Misc
 {

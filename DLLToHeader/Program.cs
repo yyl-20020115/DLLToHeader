@@ -1,7 +1,8 @@
-﻿using PE_Parser;
+﻿using PEParser;
 using SharpDemangler.Microsoft;
 using System.Diagnostics;
-using static PE_Parser.PEHeader;
+using System.Xml.Linq;
+using static PEParser.PEHeader;
 
 namespace DLLToHeader;
 
@@ -211,7 +212,73 @@ public class Program
         namespaces.Sort(new NodeArrayNodeComparer());
         return namespaces;
     }
-    public static void TrimTypeNode(TypeNode type_node, List<NodeArrayNode> namespaces, Dictionary<NodeArrayNode, NodeArrayNode> class_namespaces)
+    public static string GetName(string name, Dictionary<string,int> names)
+    {
+        if(names.TryGetValue(name, out var val))
+        {
+            names[name] = ++val;
+            return name + val;
+        }
+        else
+        {
+            names.Add(name, 1);
+            return name + 1;
+        }
+    }
+    public static void NameParameters(NodeArrayNode? parameters)
+    {
+        if (parameters != null)
+        {
+            var names = new Dictionary<string, int>();
+
+            foreach (var p in parameters)
+            {
+                var name = "";
+                switch (p)
+                {
+                    case PointerTypeNode pointerTypeNode:
+                        if(pointerTypeNode.Pointee is TagTypeNode tg)
+                        {
+                            if(tg.QualifiedName.Components.FirstOrDefault() is IdentifierNode n)
+                            {
+
+                            }
+                        }
+                        break;
+                    case TagTypeNode tagTypeNode:
+                        if (tagTypeNode.QualifiedName.Components.FirstOrDefault() is IdentifierNode n)
+                        {
+
+                        }
+
+                        break;
+                    case PrimitiveTypeNode primitiveTypeNode:
+                        var primeType = primitiveTypeNode.PrimKind.ToString();
+
+                        break;
+                    default:
+
+                        break;
+                }
+
+                name = GetName(name, names);
+                
+            }
+        }
+
+    }
+    public static void TrimParameters(NodeArrayNode? parameters, List<NodeArrayNode> namespaces, Dictionary<NodeArrayNode, NodeArrayNode> class_namespaces)
+    {
+        if (parameters != null)
+        {
+            foreach (var p in parameters)
+            {
+                TrimTypeNode(p as TypeNode, namespaces, class_namespaces);
+            }
+        }
+
+    }
+    public static void TrimTypeNode(TypeNode? type_node, List<NodeArrayNode> namespaces, Dictionary<NodeArrayNode, NodeArrayNode> class_namespaces)
     {
         if (type_node is PointerTypeNode pn && pn.Pointee is TagTypeNode tn1
             )
@@ -333,14 +400,17 @@ public class Program
                             astname.Nodes
                                 = [.. astname.Take(astname.Nodes.Length - 1)];
                         }
-                        if (class_bases.TryGetValue(astname, out var set))
+                        if (astname != null)
                         {
-                            //null means self
-                            set.Add(sp.TargetName);
-                        }
-                        else
-                        {
-                            class_bases[astname] = [sp.TargetName];
+                            if (class_bases.TryGetValue(astname, out var set))
+                            {
+                                //null means self
+                                set.Add(sp.TargetName);
+                            }
+                            else
+                            {
+                                class_bases[astname] = [sp.TargetName];
+                            }
                         }
                     }
                     break;
@@ -356,13 +426,10 @@ public class Program
             if (ast is FunctionSymbolNode fc)
             {
                 TrimTypeNode(fc.Signature.ReturnType, namespaces, class_namespaces);
-                if (fc.Signature.Params != null)
-                {
-                    foreach (var p in fc.Signature.Params)
-                    {
-                        TrimTypeNode(p as TypeNode, namespaces, class_namespaces);
-                    }
-                }
+
+                TrimParameters(fc.Signature.Params, namespaces, class_namespaces);
+
+                NameParameters(fc.Signature.Params);
             }
             else if (ast is VariableSymbolNode vc)
             {
