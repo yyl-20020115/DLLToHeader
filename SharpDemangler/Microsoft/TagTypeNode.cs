@@ -6,6 +6,7 @@ public class TagTypeNode : TypeNode
 {
     public QualifiedNameNode QualifiedName = null;
     public TagKind Tag;
+    public NamedIdentifierNode Name = null;
 
     public TagTypeNode(TagKind kind) : base(NodeKind.TagType)
     {
@@ -44,5 +45,10 @@ public class TagTypeNode : TypeNode
 
     public override void OutputPost(OutputStream os, OutputFlags flags)
     {
+        if (Name != null)
+        {
+            os.Append(' ');
+            Name.Output(os, flags);
+        }
     }
 }

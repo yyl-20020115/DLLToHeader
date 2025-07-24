@@ -18,7 +18,7 @@ public class IdentifierNode : Node
         os.Append('>');
     }
     public override int GetHashCode()
-        => base.GetHashCode() ^ (TemplateParams?.GetHashCode() ?? 0);
+        => (TemplateParams?.GetHashCode() ?? 0);
     public override bool Equals(object obj)
         => (obj is IdentifierNode other) && this.Kind == other.Kind && (
             this.TemplateParams == null && other.TemplateParams == null ||

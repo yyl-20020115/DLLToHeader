@@ -1,6 +1,8 @@
 ﻿using PEParser;
+using SharpDemangler.Common;
 using SharpDemangler.Microsoft;
 using System.Diagnostics;
+using System.Text;
 using System.Xml.Linq;
 using static PEParser.PEHeader;
 
@@ -163,12 +165,12 @@ public class Program
             {
                 name = ret;
             }
-            else if(undefineds!=null)
+            else if (undefineds != null)
             {
                 undefineds.Add(name);
             }
         }
-            return name;
+        return name;
     }
     public static List<NodeArrayNode> ExtractExports(ExportAddressName[]? exports, List<SymbolNode> asts,
         Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>> namespace_classes)
@@ -212,58 +214,166 @@ public class Program
         namespaces.Sort(new NodeArrayNodeComparer());
         return namespaces;
     }
-    public static string GetName(string name, Dictionary<string,int> names)
+
+    public static readonly char[] InitalChars = ['C', 'I', 'E'];
+    public static char GetInitialChar(string text)
     {
-        if(names.TryGetValue(name, out var val))
+        return text.Length switch
+        {
+            1 => char.ToLower(text[0]),
+            >= 2 => (InitalChars.Contains(text[0]))
+                && char.IsUpper(text[1]) ? char.ToLower(text[1]) : char.ToLower(text[0]),
+            _ => 'p',
+        };
+    }
+    public static string GetName(char name, Dictionary<char, int> names)
+    {
+        if (names.TryGetValue(name, out var val))
         {
             names[name] = ++val;
-            return name + val;
         }
         else
         {
-            names.Add(name, 1);
-            return name + 1;
+            names.Add(name, val = 1);
         }
+        var builder = new StringBuilder();
+        builder.Append(name);
+        builder.Append(val);
+        var text = builder.ToString();
+        return text;
     }
     public static void NameParameters(NodeArrayNode? parameters)
     {
         if (parameters != null)
         {
-            var names = new Dictionary<string, int>();
-
-            foreach (var p in parameters)
+            var names = new Dictionary<char, int>();
+            
+            for (int ip = 0; ip < parameters.Nodes.Length; ip++)
             {
-                var name = "";
+                var p = parameters.Nodes[ip];
                 switch (p)
                 {
                     case PointerTypeNode pointerTypeNode:
-                        if(pointerTypeNode.Pointee is TagTypeNode tg)
                         {
-                            if(tg.QualifiedName.Components.FirstOrDefault() is IdentifierNode n)
+                            if (pointerTypeNode.Pointee is TagTypeNode tg)
                             {
-
+                                if (tg.QualifiedName.Components.FirstOrDefault() is NamedIdentifierNode j)
+                                {
+                                    tg.Name = new NamedIdentifierNode
+                                    {
+                                        Kind = NodeKind.Identifier,
+                                        Name = new StringView(GetName(GetInitialChar(j.Name), names))
+                                    };
+                                }
                             }
+                            else if (pointerTypeNode.Pointee is PrimitiveTypeNode primitiveTypeNode)
+                            {
+                                pointerTypeNode.Pointee = primitiveTypeNode = primitiveTypeNode.Clone();
+
+                                var primeType = primitiveTypeNode.PrimKind.ToString();
+
+                                primitiveTypeNode.Name = new NamedIdentifierNode
+                                {
+                                    Kind = NodeKind.Identifier,
+                                    Name =
+                                    new StringView(GetName(GetInitialChar(primeType), names))
+                                };
+                                parameters[ip] = primitiveTypeNode.Clone();
+                            }
+                            break;
                         }
-                        break;
                     case TagTypeNode tagTypeNode:
-                        if (tagTypeNode.QualifiedName.Components.FirstOrDefault() is IdentifierNode n)
+                        if (tagTypeNode.QualifiedName.Components.FirstOrDefault() is NamedIdentifierNode i)
                         {
-
+                            tagTypeNode.Name = new NamedIdentifierNode
+                            {
+                                Kind = NodeKind.Identifier,
+                                Name =
+                                new StringView(GetName(GetInitialChar(i.Name), names))
+                            };
                         }
-
                         break;
                     case PrimitiveTypeNode primitiveTypeNode:
-                        var primeType = primitiveTypeNode.PrimKind.ToString();
+                        parameters.Nodes[ip] = primitiveTypeNode = primitiveTypeNode.Clone();
+                        if (primitiveTypeNode.PrimKind != PrimitiveKind.Void)
+                        {
+                            var primeType = primitiveTypeNode.PrimKind.ToString();
+                            primitiveTypeNode.Name = new NamedIdentifierNode
+                            {
+                                Kind = NodeKind.Identifier,
+                                Name =
+                                new StringView(GetName(GetInitialChar(primeType), names))
+                            };
 
+                        }
                         break;
                     default:
 
                         break;
                 }
-
-                name = GetName(name, names);
-                
             }
+            foreach (var p in parameters)
+            {
+                switch (p)
+                {
+                    case PointerTypeNode pointerTypeNode:
+                        if (pointerTypeNode.Pointee is TagTypeNode tg)
+                        {
+                            //tg.Name.Name;
+                            var c = tg.Name.Name[0];
+                            if (names.TryGetValue(c, out var cnt))
+                            {
+                                if (cnt == 1)
+                                {
+                                    tg.Name.Name = c.ToString();
+                                }
+                            }
+                        }
+                        else if (pointerTypeNode.Pointee is PrimitiveTypeNode primitiveTypeNode)
+                        {
+                            var c = primitiveTypeNode.Name.Name[0];
+                            if (names.TryGetValue(c, out var cnt))
+                            {
+                                if (cnt == 1)
+                                {
+                                    primitiveTypeNode.Name.Name = c.ToString();
+                                }
+                            }
+                        }
+                        break;
+                    case TagTypeNode tagTypeNode:
+                        if (tagTypeNode.QualifiedName.Components.FirstOrDefault() is NamedIdentifierNode i)
+                        {
+                            var c = tagTypeNode.Name.Name[0];
+                            if (names.TryGetValue(c, out var cnt))
+                            {
+                                if (cnt == 1)
+                                {
+                                    tagTypeNode.Name.Name = c.ToString();
+                                }
+                            }
+                        }
+                        break;
+                    case PrimitiveTypeNode primitiveTypeNode:
+                        if (primitiveTypeNode.PrimKind != PrimitiveKind.Void
+                            && primitiveTypeNode.Name != null)
+                        {
+                            var c = primitiveTypeNode.Name.Name[0];
+                            if (names.TryGetValue(c, out var cnt))
+                            {
+                                if (cnt == 1)
+                                {
+                                    primitiveTypeNode.Name.Name = c.ToString();
+                                }
+                            }
+                        }
+                        break;
+                    default:
+
+                        break;
+                }
+            }
+
         }
 
     }
@@ -273,7 +383,14 @@ public class Program
         {
             foreach (var p in parameters)
             {
-                TrimTypeNode(p as TypeNode, namespaces, class_namespaces);
+                if (p is PrimitiveTypeNode primitiveTypeNode && primitiveTypeNode.PrimKind== PrimitiveKind.Void)
+                {
+                    primitiveTypeNode.PrimKind = PrimitiveKind.None;
+                }
+                else
+                {
+                    TrimTypeNode(p as TypeNode, namespaces, class_namespaces);
+                }
             }
         }
 
@@ -298,9 +415,9 @@ public class Program
         {
 
         }
-        else if(type_node is FunctionSignatureNode fn)
+        else if (type_node is FunctionSignatureNode fn)
         {
-            
+
         }
         else if (type_node != null)
         {
@@ -362,7 +479,7 @@ public class Program
                             }
                             if (ast is FunctionSymbolNode fn)
                             {
-                                
+
                                 //remove __thiscall
                                 fn.Signature.CallConvention &= ~CallingConv.Thiscall;
                             }
@@ -504,7 +621,7 @@ public class Program
             writer.WriteLine("{");
             foreach (var ast in plains)
             {
-                writer.WriteLine($"\tDLLIMPORT void {ast}(void);");
+                writer.WriteLine($"\tDLLIMPORT void {ast}();");
             }
             writer.WriteLine("}");
             writer.WriteLine();
@@ -689,7 +806,7 @@ public class Program
 
         CompileAsts(namespace_classes, class_namespaces, global_functions, class_bases, variables, functions, plains, namespaces, asts);
 
-        GenerateHeaderFile(namespace_classes,namespaces, class_namespaces, global_functions, class_bases, plains, hdrfile, libfile);
+        GenerateHeaderFile(namespace_classes, namespaces, class_namespaces, global_functions, class_bases, plains, hdrfile, libfile);
 
         if (GenerateDefFile(deffile, asts, true))
         {

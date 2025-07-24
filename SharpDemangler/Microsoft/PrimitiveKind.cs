@@ -2,6 +2,7 @@
 
 public enum PrimitiveKind : int
 {
+	None = 0,
 	Void,
 	Bool,
 	Char,

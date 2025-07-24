@@ -11,7 +11,8 @@ public class PointerTypeNode : TypeNode
     public PointerAffinity Affinity = PointerAffinity.None;
     public QualifiedNameNode ClassParent = null;
     public TypeNode Pointee = null;
-
+    public PointerTypeNode Clone() 
+        => new () { Affinity = Affinity, ClassParent = this.ClassParent, Kind = this.Kind, Pointee = this.Pointee, Quals = this.Quals };
     public override void OutputPre(OutputStream os, OutputFlags flags)
     {
         if (Pointee.Kind == NodeKind.FunctionSignature)

@@ -4,7 +4,15 @@ namespace SharpDemangler.Microsoft;
 
 public class PrimitiveTypeNode : TypeNode
 {
-    public readonly PrimitiveKind PrimKind;
+    public PrimitiveKind PrimKind;
+    public NamedIdentifierNode Name = null;
+
+    public PrimitiveTypeNode Clone() => new (this.PrimKind)
+    {
+        Kind = this.Kind,
+        Quals = this.Quals,
+        Name = this.Name?.Clone()
+    };
 
     public PrimitiveTypeNode(PrimitiveKind kind) : base(NodeKind.PrimitiveType)
     {
@@ -35,7 +43,19 @@ public class PrimitiveTypeNode : TypeNode
             case PrimitiveKind.Double: os.Append("double"); break;
             case PrimitiveKind.Ldouble: os.Append("long double"); break;
             case PrimitiveKind.Nullptr: os.Append("std::nullptr_t"); break;
+            default:
+                break;
         }
         OutputQualifiers(os, Quals, true, false);
+    }
+    public override void OutputPost(OutputStream os, OutputFlags flags)
+    {
+        base.OutputPost(os, flags);
+        if (Name != null)
+        {
+            os.Append(' ');
+            Name.Output(os, flags);
+        }
+
     }
 }

@@ -61,7 +61,8 @@ public class FunctionSignatureNode : TypeNode
             }
             else
             {
-                os.Append("void");
+                //NOTICE: do not use void
+                //os.Append("void");
             }
             os.Append(')');
         }
