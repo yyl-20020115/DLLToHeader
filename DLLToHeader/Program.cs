@@ -170,7 +170,7 @@ public class Program
         }
         return name;
     }
-    public static List<NodeArrayNode> ExtractExports(PEHeader.ExportAddressName[]? exports, List<SymbolNode> asts,
+    public static List<NodeArrayNode> ExtractExports(ExportAddressName[]? exports, List<SymbolNode> asts,
         Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>> namespace_classes)
     {
         if (exports != null)

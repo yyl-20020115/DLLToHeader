@@ -61,9 +61,9 @@ public class Misc
     // print_sections(): prints pe sections info
     // arguments: a dos_header_t object
     // return: none
-    public static void PrintSections(PEHeader.DosHeader dosHeader)
+    public static void PrintSections(DosHeader dosHeader)
     {
-        PEHeader.SectionTable[]? sections = dosHeader.section_table;
+        SectionTable[]? sections = dosHeader.section_table;
         Console.WriteLine("\nSections: ");
 
         for (int idx = 0; idx < dosHeader.pe.numberOfSections; idx++)
@@ -78,24 +78,24 @@ public class Misc
             Console.WriteLine($"       NumberOfRelocations:   {sections[idx].numberOfReloc:X}");
             Console.WriteLine($"       NumberOfLineNumbers:   {sections[idx].numberOfLineNum:X}");
             Console.WriteLine($"       characteristics:       {sections[idx].characteristics:X}");
-            PEHeader.PrintSectionCharacteristics(sections[idx].characteristics);
+            PEProcessor.PrintSectionCharacteristics(sections[idx].characteristics);
         }
     }
 
-    public static PEHeader.DosHeader LoadFrom(string filename)
+    public static DosHeader LoadFrom(string filename)
     {
         using var fs = new FileStream(filename, FileMode.Open, FileAccess.Read);
         using var reader = new BinaryReader(fs,System.Text.Encoding.ASCII);
-        PEHeader.DosHeader dosHeader = new();
+        DosHeader dosHeader = new();
 
         // read headers
-        PEHeader.ReadDos(reader, ref dosHeader);
-        PEHeader.ReadPe(reader, ref dosHeader);
-        PEHeader.ReadDataDir(reader, ref dosHeader);
-        PEHeader.ReadSections(reader, ref dosHeader);
-        PEHeader.ReadDataOffset(ref dosHeader);
-        PEHeader.ReadExportDir(reader, ref dosHeader);
-        PEHeader.ReadImportDir(reader, ref dosHeader);
+        PEProcessor.ReadDos(reader, ref dosHeader);
+        PEProcessor.ReadPe(reader, ref dosHeader);
+        PEProcessor.ReadDataDir(reader, ref dosHeader);
+        PEProcessor.ReadSections(reader, ref dosHeader);
+        PEProcessor.ReadDataOffset(ref dosHeader);
+        PEProcessor.ReadExportDir(reader, ref dosHeader);
+        PEProcessor.ReadImportDir(reader, ref dosHeader);
 
         return dosHeader;
     }
@@ -115,11 +115,11 @@ public class Misc
             }
 
             using var reader = new BinaryReader(fs);
-            PEHeader.DosHeader dosHeader = new PEHeader.DosHeader();
+            DosHeader dosHeader = new DosHeader();
 
             // read headers
-            PEHeader.ReadDos(reader, ref dosHeader);
-            PEHeader.ReadPe(reader, ref dosHeader);
+            PEProcessor.ReadDos(reader, ref dosHeader);
+            PEProcessor.ReadPe(reader, ref dosHeader);
 
             // making sure we have a valid/standard pe file
             if (dosHeader.pe.signature != 0x4550)
@@ -128,11 +128,11 @@ public class Misc
                 return;
             }
 
-            PEHeader.ReadDataDir(reader, ref dosHeader);
-            PEHeader.ReadSections(reader, ref dosHeader);
-            PEHeader.ReadDataOffset(ref dosHeader);
-            PEHeader.ReadExportDir(reader, ref dosHeader);
-            PEHeader.ReadImportDir(reader, ref dosHeader);
+            PEProcessor.ReadDataDir(reader, ref dosHeader);
+            PEProcessor.ReadSections(reader, ref dosHeader);
+            PEProcessor.ReadDataOffset(ref dosHeader);
+            PEProcessor.ReadExportDir(reader, ref dosHeader);
+            PEProcessor.ReadImportDir(reader, ref dosHeader);
 
             // test printing information
             Console.WriteLine($"Parsing File: {argv[idx - 1]} \n");
@@ -144,14 +144,14 @@ public class Misc
             PrintImports(ref dosHeader);
 
             // cleanup
-            PEHeader.Cleanup(ref dosHeader);
+            PEProcessor.Cleanup(ref dosHeader);
         }
     }
 
     // print_headers(): prints the values of a DOS header object
     // arguments: a dos_header_t object
     // return: none
-    public static void PrintHeaders(ref PEHeader.DosHeader dosHeader)
+    public static void PrintHeaders(ref DosHeader dosHeader)
     {
         Console.WriteLine($"magic bytes: \t\t{(char)(0xff & dosHeader.magic)}{(char)(dosHeader.magic >> 8)}");
         Console.WriteLine($"pe Offset    \t\t{dosHeader.e_lfanew:X}");
@@ -159,18 +159,18 @@ public class Misc
         Console.WriteLine("\nPE header information");
         Console.WriteLine($" signature:   \t\t0x{dosHeader.pe.signature:X} {(char)(0xff & dosHeader.pe.signature)}{(char)(0xff & (dosHeader.pe.signature >> 8))} ");
         Console.Write(" Machine:  \t\t");
-        PEHeader.PrintMachine(dosHeader.pe.machine);
+        PEProcessor.PrintMachine(dosHeader.pe.machine);
         Console.WriteLine($" Sections: \t\t{dosHeader.pe.numberOfSections}");
         Console.WriteLine($" Time Stamp: \t\t0x{dosHeader.pe.timeStamp:X}");
         Console.WriteLine($" Symbol Table Pointer:  0x{dosHeader.pe.symTablePtr:X}");
         Console.WriteLine($" Symbols:               {dosHeader.pe.numberOfSym}");
         Console.WriteLine($" optionalHeader Size:    {dosHeader.pe.optionalHeaderSize} (0x{dosHeader.pe.optionalHeaderSize:X})");
         Console.WriteLine($" characteristics:       0x{dosHeader.pe.characteristics:X}");
-        PEHeader.PrintPeCharacteristics(dosHeader.pe.characteristics);
+        PEProcessor.PrintPeCharacteristics(dosHeader.pe.characteristics);
 
         Console.WriteLine("\nOptional Header");
         Console.Write("magic:      ");
-        PEHeader.PrintMagic(dosHeader.pe.optionalHeader.magic);
+        PEProcessor.PrintMagic(dosHeader.pe.optionalHeader.magic);
         Console.WriteLine($"MajorLinkerVersion:      0x{dosHeader.pe.optionalHeader.majorLinkerVer:X}");
         Console.WriteLine($"MinorLinkerVersion:      0x{dosHeader.pe.optionalHeader.minorLinkerVer:X}");
         Console.WriteLine($"SizeOfCode:              0x{dosHeader.pe.optionalHeader.sizeOfCode:X}");
@@ -196,9 +196,9 @@ public class Misc
         Console.WriteLine($"SizeOfHeaders:           0x{dosHeader.pe.optionalHeader.sizeOfHeaders:X}");
         Console.WriteLine($"CheckSum:                0x{dosHeader.pe.optionalHeader.checkSum:X}");
         Console.Write("Subsystem:             ");
-        PEHeader.PrintSubsystem(dosHeader.pe.optionalHeader.subsystem);
+        PEProcessor.PrintSubsystem(dosHeader.pe.optionalHeader.subsystem);
         Console.WriteLine("DllCharacteristics:           ");
-        PEHeader.PrintDllCharacteristics(dosHeader.pe.optionalHeader.dllCharacteristics);
+        PEProcessor.PrintDllCharacteristics(dosHeader.pe.optionalHeader.dllCharacteristics);
 
         Console.WriteLine($"SizeOfStackReserve:      {dosHeader.pe.optionalHeader.sizeOfStackReserve:X}");
         Console.WriteLine($"SizeOfStackCommit:       {dosHeader.pe.optionalHeader.sizeOfStackCommit:X}");
@@ -212,7 +212,7 @@ public class Misc
     // print_dataTables(): prints a list of data tables in a pe file
     // arguments: a dos_header_t object
     // return: none
-    public static void PrintDataTables(ref PEHeader.DosHeader dosHeader)
+    public static void PrintDataTables(ref DosHeader dosHeader)
     {
         // Data Directories Types
         string[] dataTable = { "Export Table", "Import Table",
@@ -239,7 +239,7 @@ public class Misc
 
             Console.WriteLine($"  {dataTable[idx]}: ");
 
-            offset = (uint)PEHeader.RvaToOffset(sections, vAddress, dosHeader.section_table!);
+            offset = (uint)PEProcessor.RvaToOffset(sections, vAddress, dosHeader.section_table!);
 
             Console.WriteLine($"     Address: 0x{vAddress:X} \tOffset: 0x{offset:X}");
             Console.WriteLine($"        Size: 0x{dosHeader.dataDirectory[idx].size:X} ");
@@ -249,7 +249,7 @@ public class Misc
     // print_exports(): prints a list of exports in a pe file
     // arguments: a dos_header_t object
     // return: none
-    public static void PrintExports(ref PEHeader.DosHeader dosHeader)
+    public static void PrintExports(ref DosHeader dosHeader)
     {
         Console.WriteLine("\nExport Directory ");
         Console.WriteLine($"    Flags:           0x{dosHeader.exportDir.exportFlags:X}");
@@ -278,7 +278,7 @@ public class Misc
     // print_imports(): prints a list of imports in a pe file
     // arguments: a dos_header_t object
     // return: none
-    public static void PrintImports(ref PEHeader.DosHeader dosHeader)
+    public static void PrintImports(ref DosHeader dosHeader)
     {
         uint? tableEntries;
 
