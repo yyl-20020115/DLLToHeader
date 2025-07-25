@@ -2,5 +2,5 @@
 
 public struct ExportAddressName
 {
-    public string names;
+    public string Names;
 }

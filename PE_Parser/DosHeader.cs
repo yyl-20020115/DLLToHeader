@@ -1,7 +1,7 @@
 ﻿namespace PEParser;
 
 // Define the necessary structures
-public struct DosHeader
+public class DosHeader
 {
     public ushort magic;
     public ushort e_cblp;
@@ -22,9 +22,13 @@ public struct DosHeader
     public ushort e_oeminfo;
     public ulong e_res2;
     public uint e_lfanew;
-    public PEHeader pe;
-    public DataDirectory[]? dataDirectory;
-    public SectionTable[]? section_table;
-    public ExportDirectory exportDir;
-    public ImportDirectory[]? importDir;
+    
+}
+public class ExtendedDosHeader : DosHeader
+{
+    public PEHeader PE;
+    public DataDirectory[]? DataDirectory;
+    public SectionTable[]? SectionTable;
+    public ExportDirectory ExportDirectory;
+    public ImportDirectory[]? ImportDirectory;
 }

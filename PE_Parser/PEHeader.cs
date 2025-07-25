@@ -2,13 +2,13 @@
 
 public struct PEHeader
 {
-    public uint signature;
-    public ushort machine;
-    public ushort numberOfSections;
-    public uint timeStamp;
-    public uint symTablePtr;
-    public uint numberOfSym;
-    public ushort optionalHeaderSize;
-    public ushort characteristics;
-    public OptionalHeader optionalHeader;
+    public uint Signature;
+    public ushort Machine;
+    public ushort NumberOfSections;
+    public uint TimeStamp;
+    public uint SymbolTablePointer;
+    public uint NumberOfSymbols;
+    public ushort OptionalHeaderSize;
+    public ushort Characteristics;
+    public OptionalHeader OptionalHeader;
 }

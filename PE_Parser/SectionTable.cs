@@ -2,14 +2,14 @@
 
 public struct SectionTable
 {
-    public string? name;
-    public uint virtualSize;
-    public uint virtualAddr;
-    public uint sizeOfRawData;
-    public uint ptrToRawData;
-    public uint ptrToReloc;
-    public uint ptrToLineNum;
-    public ushort numberOfReloc;
-    public ushort numberOfLineNum;
-    public uint characteristics;
+    public string? Name;
+    public uint VirtualSize;
+    public uint VirtualAddress;
+    public uint SizeOfRawData;
+    public uint PointerToRawData;
+    public uint PointerToRelocation;
+    public uint PointerToLineNumbers;
+    public ushort NumberOfRelocation;
+    public ushort NumberOfLineNumbers;
+    public uint Characteristics;
 }

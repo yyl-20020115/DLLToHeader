@@ -2,9 +2,9 @@
 
 public struct ImportDirectory
 {
-    public uint importLookupTableRVA;
-    public uint timeStamp;
-    public uint forwarderChain;
-    public uint nameRVA;
-    public uint importAddressRVA;
+    public uint ImportLookupTableRVA;
+    public uint TimeStamp;
+    public uint ForwarderChain;
+    public uint NameRVA;
+    public uint ImportAddressRVA;
 }

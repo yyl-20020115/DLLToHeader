@@ -2,16 +2,16 @@
 
 public struct ExportDirectory
 {
-    public uint exportFlags;
-    public uint timeStamp;
-    public ushort majorVer;
-    public ushort minorVer;
-    public uint nameRVA;
-    public uint ordinalBase;
-    public uint addrTableEntries;
-    public uint numberOfNamePointers;
-    public uint exportAddrTableRVA;
-    public uint namePtrRVA;
-    public uint ordinalTableRVA;
-    public ExportAddressName[]? exports;
+    public uint ExportFlags;
+    public uint TimeStamp;
+    public ushort MajorVersion;
+    public ushort MinorVersion;
+    public uint NameRVA;
+    public uint OrdinalBase;
+    public uint AddressTableEntries;
+    public uint NumberOfNamePointers;
+    public uint ExportAddrTableRVA;
+    public uint NamePtrRVA;
+    public uint OrdinalTableRVA;
+    public ExportAddressName[]? Exports;
 }
