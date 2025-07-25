@@ -2,13 +2,9 @@
 
 namespace SharpDemangler.Microsoft;
 
-public class IntrinsicFunctionIdentifierNode : IdentifierNode
+public class IntrinsicFunctionIdentifierNode(IntrinsicFunctionKind Operator) : IdentifierNode(NodeKind.IntrinsicFunctionIdentifier)
 {
-    public IntrinsicFunctionKind Operator;
-    public IntrinsicFunctionIdentifierNode(IntrinsicFunctionKind Operator) : base(NodeKind.IntrinsicFunctionIdentifier)
-    {
-        this.Operator = Operator;
-    }
+    public IntrinsicFunctionKind Operator = Operator;
 
     public override void Output(OutputStream os, OutputFlags flags)
     {

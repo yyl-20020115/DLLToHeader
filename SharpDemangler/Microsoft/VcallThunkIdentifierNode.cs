@@ -6,7 +6,8 @@ public class VcallThunkIdentifierNode : IdentifierNode
 {
     public ulong OffsetInVtable = 0;
 
-    public VcallThunkIdentifierNode() : base(NodeKind.VcallThunkIdentifier)
+    public VcallThunkIdentifierNode()
+        : base(NodeKind.VcallThunkIdentifier)
     {
     }
 

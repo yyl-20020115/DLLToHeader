@@ -37,8 +37,9 @@ public static class FileGenerator
         Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>> namespace_classes,
         List<NodeArrayNode> namespaces,
         Dictionary<NodeArrayNode, NodeArrayNode> class_namespaces,
+        Dictionary<NodeArrayNode, HashSet<NodeArrayNode>> deps,
         Dictionary<NodeArrayNode, SymbolNode> global_functions,
-        Dictionary<NodeArrayNode, HashSet<QualifiedNameNode>> class_bases,
+        Dictionary<NodeArrayNode, HashSet<NodeArrayNode>> class_bases,
         List<SymbolNode> plains,
         string hdrfile, string libfile)
     {
@@ -64,17 +65,27 @@ public static class FileGenerator
             writer.WriteLine($"namespace {QualifiedNameNode.From(ns.Key)}");
             writer.WriteLine("{");
 
-            foreach (var ks in ns.Value)
+            if (deps.TryGetValue(ns.Key, out var found))
+            {
+                found.UnionWith(ns.Value.Keys);
+            }
+            else
+            {
+                found = [];
+            }
+
+            foreach (var ks in found)
             {
                 var full = new NodeArrayNode
                 {
                     Kind = NodeKind.NodeArray,
-                    Nodes = [.. ns.Key.Nodes, .. ks.Key.Nodes]
+                    Nodes = [.. ns.Key.Nodes, .. ks.Nodes]
                 };
                 if (!global_functions.ContainsKey(full))
                 {
-                    writer.WriteLine($"\tclass {QualifiedNameNode.From(ks.Key)};");
+                    writer.WriteLine($"\tclass {QualifiedNameNode.From(ks)};");
                 }
+
             }
             foreach (var cs in ns.Value)
             {
@@ -86,17 +97,16 @@ public static class FileGenerator
                 if (!global_functions.ContainsKey(full))
                 {
                     writer.WriteLine($"\tclass DLLIMPORT {QualifiedNameNode.From(cs.Key)}");
-                    if (class_bases.TryGetValue(full, out var deps) && deps.Count > 0)
+                    if (class_bases.TryGetValue(full, out var dep_list) && dep_list.Count > 0)
                     {
                         var any = false;
-                        foreach (var dep in deps)
+                        foreach (var _dep in dep_list)
                         {
-                            if (dep != null)
+                            if (_dep != null)
                             {
-                                dep.Components = AstProcessor.TrimNamespace(dep.Components, namespaces, class_namespaces);
                                 writer.Write("\t\t");
                                 writer.Write(any ? ", " : ": ");
-                                writer.WriteLine(dep);
+                                writer.WriteLine(AstProcessor.TrimNamespace(_dep, namespaces, class_namespaces));
                                 any = true;
                             }
                         }
@@ -121,6 +131,8 @@ public static class FileGenerator
                             writer.WriteLine("\tpublic:");
                             foreach (VariableSymbolNode vs in v_publics.Cast<VariableSymbolNode>())
                             {
+                                AstProcessor.TrimTypeNode(vs.Type, namespaces, class_namespaces);
+                                vs.Name.Components = AstProcessor.GetFullClassLeftPart(vs.Name.Components, namespaces);
                                 vs.sc = StorageClass.None;
                                 writer.WriteLine($"\t\tstatic {vs};");
                             }
@@ -130,6 +142,8 @@ public static class FileGenerator
                             writer.WriteLine("\tprotected:");
                             foreach (VariableSymbolNode vs in v_protecteds.Cast<VariableSymbolNode>())
                             {
+                                AstProcessor.TrimTypeNode(vs.Type, namespaces, class_namespaces);
+                                vs.Name.Components = AstProcessor.GetFullClassLeftPart(vs.Name.Components, namespaces);
                                 vs.sc = StorageClass.None;
                                 writer.WriteLine($"\t\tstatic {vs};");
                             }
@@ -137,8 +151,10 @@ public static class FileGenerator
                         if (v_privates.Length > 0)
                         {
                             writer.WriteLine("\tprivate:");
-                            foreach (VariableSymbolNode vs in v_privates)
+                            foreach (VariableSymbolNode vs in v_privates.Cast<VariableSymbolNode>())
                             {
+                                AstProcessor.TrimTypeNode(vs.Type, namespaces, class_namespaces);
+                                vs.Name.Components = AstProcessor.GetFullClassLeftPart(vs.Name.Components, namespaces);
                                 vs.sc = StorageClass.None;
                                 writer.WriteLine($"\t\tstatic {vs};");
                             }
@@ -148,6 +164,8 @@ public static class FileGenerator
                             writer.WriteLine("\t//function local static");
                             foreach (VariableSymbolNode vs in v_function_local.Cast<VariableSymbolNode>())
                             {
+                                AstProcessor.TrimTypeNode(vs.Type, namespaces, class_namespaces);
+                                //vs.Name.Components = AstProcessor.GetFullClassLeftPart(vs.Name.Components, namespaces);
                                 vs.sc = StorageClass.None;
                                 writer.WriteLine($"\t\t//{vs};");
                             }

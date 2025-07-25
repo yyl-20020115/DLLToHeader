@@ -1,38 +1,37 @@
 ﻿using SharpDemangler.Common;
 
-namespace SharpDemangler.Microsoft
+namespace SharpDemangler.Microsoft;
+
+public class EncodedStringLiteralNode : SymbolNode
 {
-    public class EncodedStringLiteralNode : SymbolNode
+    public string DecodedString;
+    public bool IsTruncated = false;
+    public CharKind Char = CharKind.Char;
+
+    public EncodedStringLiteralNode() : base(NodeKind.EncodedStringLiteral)
     {
-        public string DecodedString;
-        public bool IsTruncated = false;
-        public CharKind Char = CharKind.Char;
+    }
 
-        public EncodedStringLiteralNode() : base(NodeKind.EncodedStringLiteral)
+    public override void Output(OutputStream os, OutputFlags flags)
+    {
+        switch (Char)
         {
+            case CharKind.Wchar:
+                os.Append("L\"");
+                break;
+            case CharKind.Char:
+                os.Append("\"");
+                break;
+            case CharKind.Char16:
+                os.Append("u\"");
+                break;
+            case CharKind.Char32:
+                os.Append("U\"");
+                break;
         }
-
-        public override void Output(OutputStream os, OutputFlags flags)
-        {
-            switch (Char)
-            {
-                case CharKind.Wchar:
-                    os.Append("L\"");
-                    break;
-                case CharKind.Char:
-                    os.Append("\"");
-                    break;
-                case CharKind.Char16:
-                    os.Append("u\"");
-                    break;
-                case CharKind.Char32:
-                    os.Append("U\"");
-                    break;
-            }
-            os.Append(DecodedString);
-            os.Append("\"");
-            if (IsTruncated)
-                os.Append("...");
-        }
+        os.Append(DecodedString);
+        os.Append("\"");
+        if (IsTruncated)
+            os.Append("...");
     }
 }

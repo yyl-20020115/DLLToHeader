@@ -1,9 +1,8 @@
-﻿namespace SharpDemangler.Microsoft
+﻿namespace SharpDemangler.Microsoft;
+
+public enum FunctionRefQualifier : int
 {
-    public enum FunctionRefQualifier : int
-    {
-        None,
-        Reference,
-        RValueReference
-    }
+    None,
+    Reference,
+    RValueReference
 }

@@ -27,7 +27,7 @@ public partial class Program
 
         var header = PELoader.LoadFrom(dllfile);
         var asts = new List<SymbolNode>();
-        var class_bases = new Dictionary<NodeArrayNode, HashSet<QualifiedNameNode>>();
+        var class_bases = new Dictionary<NodeArrayNode, HashSet<NodeArrayNode>>();
         var namespace_classes = new Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>>();
         var class_namespaces = new Dictionary<NodeArrayNode, NodeArrayNode>();
 
@@ -35,11 +35,12 @@ public partial class Program
         var variables = new HashSet<SymbolNode>();
         var functions = new HashSet<SymbolNode>();
         var plains = new List<SymbolNode>();
+        var deps = new Dictionary<NodeArrayNode, HashSet<NodeArrayNode>>();
         var namespaces = AstProcessor.ExtractExports(header.ExportDirectory.Exports, asts, namespace_classes);
         AstProcessor.
-                Compile(namespace_classes, class_namespaces, global_functions, class_bases, variables, functions, plains, namespaces, asts);
+                Compile(namespace_classes, class_namespaces, global_functions, class_bases, variables, functions, plains, namespaces, asts, deps);
         FileGenerator.
-                GenerateHeaderFile(namespace_classes, namespaces, class_namespaces, global_functions, class_bases, plains, hdrfile, libfile);
+                GenerateHeaderFile(namespace_classes, namespaces, class_namespaces, deps, global_functions, class_bases, plains, hdrfile, libfile);
 
         if (FileGenerator.GenerateDefFile(deffile, asts, true))
         {

@@ -26,8 +26,7 @@ public class NodeArrayNode : Node, IEnumerable<Node>
     {
         if (Nodes.Length == 0)
             return;
-        if (Nodes[0] != null)
-            Nodes[0].Output(os, flags);
+        Nodes[0]?.Output(os, flags);
 
         for (int i = 1; i < Nodes.Length; i++)
         {

@@ -2,16 +2,10 @@
 
 namespace SharpDemangler.Microsoft;
 
-public class IntegerLiteralNode : Node
+public class IntegerLiteralNode(ulong value, bool isNegative) : Node(NodeKind.IntegerLiteral)
 {
-    public ulong Value;
-    bool IsNegative = false;
-
-    public IntegerLiteralNode(ulong value, bool isNegative) : base(NodeKind.IntegerLiteral)
-    {
-        this.Value = value;
-        this.IsNegative = isNegative;
-    }
+    public ulong Value = value;
+    public bool IsNegative = isNegative;
 
     public override void Output(OutputStream os, OutputFlags flags)
     {

@@ -652,8 +652,10 @@ public class MicrosoftDemangler
             if (str == backrefs.Names[i].Name)
                 return;
         }
-        NamedIdentifierNode node = new NamedIdentifierNode();
-        node.Name = str;
+        var node = new NamedIdentifierNode
+        {
+            Name = str
+        };
         backrefs.Names[backrefs.NamesCount++] = node;
     }
 
@@ -825,8 +827,10 @@ public class MicrosoftDemangler
 
     NamedIdentifierNode SynthesizeNamedIdentifier(StringView name)
     {
-        NamedIdentifierNode id = new NamedIdentifierNode();
-        id.Name = name;
+        var id = new NamedIdentifierNode
+        {
+            Name = name
+        };
         return id;
     }
 
@@ -1400,8 +1404,10 @@ public class MicrosoftDemangler
 
     QualifiedNameNode SynthesizeQualifiedName(IdentifierNode identifier)
     {
-        QualifiedNameNode qn = new QualifiedNameNode();
-        qn.Components = new NodeArrayNode();
+        QualifiedNameNode qn = new()
+        {
+            Components = new NodeArrayNode()
+        };
         qn.Components.Nodes = new Node[1];
         qn.Components.Nodes[0] = identifier;
         return qn;
@@ -1413,18 +1419,18 @@ public class MicrosoftDemangler
     }
     public string Format(SymbolNode node)
     {
-        var buf = new OutputStream();
+        var os = new OutputStream();
 
-        node.Output(buf, OutputFlags.Default);
+        node.Output(os, OutputFlags.Default);
 
-        return buf.ToString();
+        return os.ToString();
     }
     public SymbolNode Parse(ref StringView mangledName)
     {
         var text = mangledName;
         if (mangledName.StartsWith("??@"))
         {
-            SymbolNode s = new SymbolNode(NodeKind.Md5Symbol);
+            var s = new SymbolNode(NodeKind.Md5Symbol);
             s.SetText(text);
             s.Name = SynthesizeQualifiedName(mangledName);
             return s;
@@ -1537,7 +1543,7 @@ public class MicrosoftDemangler
     {
         Assert.True(StartsWithLocalScopePattern(mangledName));
 
-        NamedIdentifierNode identifier = new NamedIdentifierNode();
+        var identifier = new NamedIdentifierNode();
         mangledName.ConsumeFront('?');
 
         var number = DemangleNumber(ref mangledName);
@@ -1546,11 +1552,10 @@ public class MicrosoftDemangler
         mangledName.ConsumeFront('?');
 
         Assert.True(!error);
-        Node scope = Parse(ref mangledName);
+        var scope = Parse(ref mangledName);
         if (error)
             return null;
-
-        OutputStream os = new OutputStream();
+        var os = new OutputStream();
         os.Append('`');
         scope.Output(os, OutputFlags.Default);
         os.Append('\'');
@@ -1558,7 +1563,7 @@ public class MicrosoftDemangler
         os.Append(number.Item1);
         os.Append('\'');
 
-        string result = os.ToString();
+        var result = os.ToString();
         identifier.Name = result;
         identifier.Scope = scope;
         return identifier;
@@ -1566,19 +1571,23 @@ public class MicrosoftDemangler
 
     NamedIdentifierNode DemangleSimpleName(ref StringView mangledName, bool memorize)
     {
-        StringView s = DemangleSimpleString(ref mangledName, memorize);
+        var s = DemangleSimpleString(ref mangledName, memorize);
         if (error)
             return null;
 
-        NamedIdentifierNode name = new NamedIdentifierNode();
-        name.Name = s;
+        var name = new NamedIdentifierNode
+        {
+            Name = s
+        };
         return name;
     }
 
     NodeArrayNode NodeListToNodeArray(NodeList head, int count)
     {
-        NodeArrayNode n = new NodeArrayNode();
-        n.Nodes = new Node[count];
+        var n = new NodeArrayNode
+        {
+            Nodes = new Node[count]
+        };
         for (int i = 0; i < count; i++)
         {
             n.Nodes[i] = head.Node;
@@ -1835,7 +1844,7 @@ public class MicrosoftDemangler
         Assert.True(mangledName.StartsWith('?'));
         mangledName.PopFront();
 
-        CustomTypeNode ctn = new CustomTypeNode();
+        var ctn = new CustomTypeNode();
         ctn.Identifier = DemangleUnqualifiedTypeName(ref mangledName, true);
 
         if (!mangledName.ConsumeFront('@'))

@@ -39,7 +39,6 @@ public class VariableSymbolNode : SymbolNode
 
         Name.Output(os, flags);
 
-        if (Type != null)
-            Type.OutputPost(os, flags);
+        Type?.OutputPost(os, flags);
     }
 }

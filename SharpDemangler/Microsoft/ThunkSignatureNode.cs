@@ -12,7 +12,7 @@ public struct ThisAdjustor
 
 public class ThunkSignatureNode : FunctionSignatureNode
 {
-    public ThisAdjustor ThisAdjust = new ThisAdjustor()
+    public ThisAdjustor ThisAdjust = new ()
     {
         StaticOffset = 0,
         VBOffsetOffset = 0,

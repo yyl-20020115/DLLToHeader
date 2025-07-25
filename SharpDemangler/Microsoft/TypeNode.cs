@@ -2,13 +2,9 @@
 
 namespace SharpDemangler.Microsoft;
 
-public class TypeNode : Node
+public class TypeNode(NodeKind kind) : Node(kind)
 {
     public Qualifiers Quals = Qualifiers.None;
-
-    public TypeNode(NodeKind kind) : base(kind)
-    {
-    }
 
     public virtual void OutputPre(OutputStream os, OutputFlags flags) { }
     public virtual void OutputPost(OutputStream os, OutputFlags flags) { }

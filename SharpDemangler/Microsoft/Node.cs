@@ -27,7 +27,7 @@ public class Node
         if (os.Length == 0)
             return;
 
-        char c = os[os.Length - 1];
+        char c = os[^1];
         if (char.IsLetterOrDigit(c) || c == '>')
             os.Append(' ');
     }

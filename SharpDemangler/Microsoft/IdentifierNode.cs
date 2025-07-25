@@ -2,12 +2,9 @@
 
 namespace SharpDemangler.Microsoft;
 
-public class IdentifierNode : Node
+public class IdentifierNode(NodeKind kind) : Node(kind)
 {
     public NodeArrayNode TemplateParams;
-    public IdentifierNode(NodeKind kind) : base(kind)
-    {
-    }
 
     public void OutputTemplateParameters(OutputStream os, OutputFlags flags)
     {

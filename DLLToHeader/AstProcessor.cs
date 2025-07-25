@@ -11,12 +11,13 @@ public static class AstProcessor
         Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>> namespace_classes,
         Dictionary<NodeArrayNode, NodeArrayNode> class_namespaces,
         Dictionary<NodeArrayNode, SymbolNode> global_functions,
-        Dictionary<NodeArrayNode, HashSet<QualifiedNameNode>> class_bases,
+        Dictionary<NodeArrayNode, HashSet<NodeArrayNode>> class_bases,
         HashSet<SymbolNode> variables,
         HashSet<SymbolNode> functions,
         List<SymbolNode> plains,
         List<NodeArrayNode> namespaces,
-        List<SymbolNode> asts)
+        List<SymbolNode> asts,
+        Dictionary<NodeArrayNode, HashSet<NodeArrayNode>> deps)
     {
         foreach (var ast in asts)
         {
@@ -99,16 +100,27 @@ public static class AstProcessor
                             astname.Nodes
                                 = [.. astname.Take(astname.Nodes.Length - 1)];
                         }
-                        if (astname != null)
+                        if (astname != null && sp.TargetName != null)
                         {
+                            var sptc = sp.TargetName.Components;
                             if (class_bases.TryGetValue(astname, out var set))
                             {
                                 //null means self
-                                set.Add(sp.TargetName);
+                                set.Add(sptc);
                             }
                             else
                             {
-                                class_bases[astname] = [sp.TargetName];
+                                class_bases[astname] = [sptc];
+                            }
+                            var ns = GetNamespacePart(sptc, namespaces);
+                            var dep = GetClassPart(sptc, namespaces);
+                            if (deps.TryGetValue(ns, out var dep_list))
+                            {
+                                dep_list.Add(dep);
+                            }
+                            else
+                            {
+                                deps[ns] = [dep];
                             }
                         }
                     }
@@ -241,6 +253,26 @@ public static class AstProcessor
                         {
                             Kind = NodeKind.NodeArray,
                             Nodes = [.. node.Nodes.Take(namespaces[i].Nodes.Length + 1)]
+                        };
+                }
+            }
+        }
+        return [];
+    }
+    public static NodeArrayNode GetFullClassLeftPart(NodeArrayNode node, List<NodeArrayNode> namespaces)
+    {
+        for (int i = 0; i < namespaces.Count; i++)
+        {
+            if (namespaces[i].Nodes.Length <= node.Nodes.Length)
+            {
+                var taken = node.Nodes.Take(namespaces[i].Nodes.Length);
+                if (Enumerable.SequenceEqual(namespaces[i].Nodes, taken))
+                {
+                    return
+                        new NodeArrayNode()
+                        {
+                            Kind = NodeKind.NodeArray,
+                            Nodes = [.. node.Nodes.Skip(namespaces[i].Nodes.Length + 1)]
                         };
                 }
             }
@@ -516,15 +548,19 @@ public static class AstProcessor
         if (parameters != null)
         {
             var results = new List<Node>();
-            foreach (var p in parameters)
+            foreach (var ps in parameters)
             {
+                var p = ps;
                 if (p is PrimitiveTypeNode primitiveTypeNode && primitiveTypeNode.PrimKind == PrimitiveKind.Void)
                 {
                     primitiveTypeNode.PrimKind = PrimitiveKind.None;
                 }
-                else
+                else if(p is TypeNode t)
                 {
-                    TrimTypeNode(p as TypeNode, namespaces, class_namespaces);
+                    TrimTypeNode(t, namespaces, class_namespaces);
+                }else if(p is NodeArrayNode an)
+                {
+                    p = TrimParameters(an, namespaces, class_namespaces);
                 }
                 results.Add(p);
             }
@@ -535,6 +571,9 @@ public static class AstProcessor
     }
     public static void TrimTypeNode(TypeNode? type_node, List<NodeArrayNode> namespaces, Dictionary<NodeArrayNode, NodeArrayNode> class_namespaces)
     {
+        if (type_node != null && type_node.ToString().Contains("<"))
+        {
+        }
         if (type_node is PointerTypeNode pn && pn.Pointee is TagTypeNode tn1)
         {
             tn1.QualifiedName.Components = TrimNamespace(

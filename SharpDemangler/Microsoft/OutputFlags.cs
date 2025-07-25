@@ -3,7 +3,7 @@
 namespace SharpDemangler.Microsoft;
 
 [Flags]
-public enum OutputFlags
+public enum OutputFlags : int
 {
     Default = 0,
     NoCallingConvention = 1 << 0,
