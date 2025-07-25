@@ -6,7 +6,6 @@ namespace DLLToHeader;
 
 public static class AstProcessor
 {
-
     public static readonly char[] InitalChars = ['C', 'I', 'E'];
     public static void Compile(
         Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>> namespace_classes,
@@ -63,7 +62,6 @@ public static class AstProcessor
                             }
                             if (ast is FunctionSymbolNode fn)
                             {
-
                                 //remove __thiscall
                                 fn.Signature.CallConvention &= ~CallingConv.Thiscall;
                             }
@@ -135,7 +133,6 @@ public static class AstProcessor
                 AstProcessor.TrimTypeNode(vc.Type, namespaces, class_namespaces);
             }
         }
-
     }
     public static List<NodeArrayNode> ExtractExports(ExportAddressName[]? exports, List<SymbolNode> asts,
         Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>> namespace_classes)
