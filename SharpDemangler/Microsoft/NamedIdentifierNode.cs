@@ -9,7 +9,7 @@ public class NamedIdentifierNode : IdentifierNode
     public NamedIdentifierNode() : base(NodeKind.NamedIdentifier)
     {
     }
-    public NamedIdentifierNode Clone() => new NamedIdentifierNode
+    public NamedIdentifierNode Clone() => new ()
     {
         Kind = this.Kind,
         Name = new StringView(this.Name),

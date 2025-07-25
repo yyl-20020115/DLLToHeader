@@ -3,8 +3,6 @@ using SharpDemangler.Common;
 using SharpDemangler.Microsoft;
 using System.Diagnostics;
 using System.Text;
-using System.Xml.Linq;
-using static PEParser.PEHeader;
 
 namespace DLLToHeader;
 
@@ -172,7 +170,7 @@ public class Program
         }
         return name;
     }
-    public static List<NodeArrayNode> ExtractExports(ExportAddressName[]? exports, List<SymbolNode> asts,
+    public static List<NodeArrayNode> ExtractExports(PEHeader.ExportAddressName[]? exports, List<SymbolNode> asts,
         Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>> namespace_classes)
     {
         if (exports != null)
@@ -226,6 +224,30 @@ public class Program
             _ => 'p',
         };
     }
+
+    public static NodeArrayNode? TrimParameters(NodeArrayNode? parameters, List<NodeArrayNode> namespaces, Dictionary<NodeArrayNode, NodeArrayNode> class_namespaces)
+    {
+        if (parameters != null)
+        {
+            var results = new List<Node>();
+            foreach (var p in parameters)
+            {
+                if (p is PrimitiveTypeNode primitiveTypeNode && primitiveTypeNode.PrimKind == PrimitiveKind.Void)
+                {
+                    primitiveTypeNode.PrimKind = PrimitiveKind.None;
+                }
+                else
+                {
+                    TrimTypeNode(p as TypeNode, namespaces, class_namespaces);
+                }
+                results.Add(p);
+            }
+            parameters = new NodeArrayNode { Kind = parameters.Kind, Nodes = [.. results] };
+        }
+        return parameters;
+
+    }
+
     public static string GetName(char name, Dictionary<char, int> names)
     {
         if (names.TryGetValue(name, out var val))
@@ -236,29 +258,29 @@ public class Program
         {
             names.Add(name, val = 1);
         }
-        var builder = new StringBuilder();
-        builder.Append(name);
-        builder.Append(val);
-        var text = builder.ToString();
-        return text;
+        return $"{name}{val}";
     }
-    public static void NameParameters(NodeArrayNode? parameters)
+    public static NodeArrayNode? NameParameters(NodeArrayNode? parameters)
     {
+        var results = new List<Node>();
         if (parameters != null)
         {
             var names = new Dictionary<char, int>();
-            
-            for (int ip = 0; ip < parameters.Nodes.Length; ip++)
+            foreach (var ip in parameters.ToList())
             {
-                var p = parameters.Nodes[ip];
-                switch (p)
+                var p = ip;
+                switch (ip)
                 {
                     case PointerTypeNode pointerTypeNode:
                         {
                             if (pointerTypeNode.Pointee is TagTypeNode tg)
                             {
+                                p = pointerTypeNode = pointerTypeNode.Clone();
+
                                 if (tg.QualifiedName.Components.FirstOrDefault() is NamedIdentifierNode j)
                                 {
+                                    pointerTypeNode.Pointee = tg = tg.Clone();
+
                                     tg.Name = new NamedIdentifierNode
                                     {
                                         Kind = NodeKind.Identifier,
@@ -268,6 +290,7 @@ public class Program
                             }
                             else if (pointerTypeNode.Pointee is PrimitiveTypeNode primitiveTypeNode)
                             {
+                                p = pointerTypeNode = pointerTypeNode.Clone();
                                 pointerTypeNode.Pointee = primitiveTypeNode = primitiveTypeNode.Clone();
 
                                 var primeType = primitiveTypeNode.PrimKind.ToString();
@@ -278,11 +301,17 @@ public class Program
                                     Name =
                                     new StringView(GetName(GetInitialChar(primeType), names))
                                 };
-                                parameters[ip] = primitiveTypeNode.Clone();
+                            }
+                            else if (pointerTypeNode.Pointee is PointerTypeNode pn)
+                            {
+                                 p  = pointerTypeNode = pn.Clone();
+                                 pointerTypeNode.Pointee 
+                                    = NameParameters(new NodeArrayNode { Kind = NodeKind.NodeArray, Nodes = [pn] })?.Nodes?[0] as TypeNode;
                             }
                             break;
                         }
                     case TagTypeNode tagTypeNode:
+                        p = tagTypeNode = tagTypeNode.Clone();
                         if (tagTypeNode.QualifiedName.Components.FirstOrDefault() is NamedIdentifierNode i)
                         {
                             tagTypeNode.Name = new NamedIdentifierNode
@@ -294,9 +323,9 @@ public class Program
                         }
                         break;
                     case PrimitiveTypeNode primitiveTypeNode:
-                        parameters.Nodes[ip] = primitiveTypeNode = primitiveTypeNode.Clone();
                         if (primitiveTypeNode.PrimKind != PrimitiveKind.Void)
                         {
+                            p = primitiveTypeNode = primitiveTypeNode.Clone();
                             var primeType = primitiveTypeNode.PrimKind.ToString();
                             primitiveTypeNode.Name = new NamedIdentifierNode
                             {
@@ -311,8 +340,9 @@ public class Program
 
                         break;
                 }
+                results.Add(p);
             }
-            foreach (var p in parameters)
+            foreach (var p in results)
             {
                 switch (p)
                 {
@@ -331,12 +361,16 @@ public class Program
                         }
                         else if (pointerTypeNode.Pointee is PrimitiveTypeNode primitiveTypeNode)
                         {
-                            var c = primitiveTypeNode.Name.Name[0];
+                            var c = char.ToLower(primitiveTypeNode.PrimKind.ToString()[0]);
                             if (names.TryGetValue(c, out var cnt))
                             {
                                 if (cnt == 1)
                                 {
-                                    primitiveTypeNode.Name.Name = c.ToString();
+                                    primitiveTypeNode.Name = new NamedIdentifierNode
+                                    {
+                                        Kind = NodeKind.Identifier,
+                                        Name = c.ToString()
+                                    };
                                 }
                             }
                         }
@@ -358,7 +392,7 @@ public class Program
                         if (primitiveTypeNode.PrimKind != PrimitiveKind.Void
                             && primitiveTypeNode.Name != null)
                         {
-                            var c = primitiveTypeNode.Name.Name[0];
+                            var c = char.ToLower(primitiveTypeNode.PrimKind.ToString()[0]);
                             if (names.TryGetValue(c, out var cnt))
                             {
                                 if (cnt == 1)
@@ -374,31 +408,15 @@ public class Program
                 }
             }
 
+            parameters.Nodes = [.. results];
+            return parameters;
+            //return new NodeArrayNode { Kind = parameters.Kind, Nodes = [.. results] };
         }
-
-    }
-    public static void TrimParameters(NodeArrayNode? parameters, List<NodeArrayNode> namespaces, Dictionary<NodeArrayNode, NodeArrayNode> class_namespaces)
-    {
-        if (parameters != null)
-        {
-            foreach (var p in parameters)
-            {
-                if (p is PrimitiveTypeNode primitiveTypeNode && primitiveTypeNode.PrimKind== PrimitiveKind.Void)
-                {
-                    primitiveTypeNode.PrimKind = PrimitiveKind.None;
-                }
-                else
-                {
-                    TrimTypeNode(p as TypeNode, namespaces, class_namespaces);
-                }
-            }
-        }
-
+        return parameters;
     }
     public static void TrimTypeNode(TypeNode? type_node, List<NodeArrayNode> namespaces, Dictionary<NodeArrayNode, NodeArrayNode> class_namespaces)
     {
-        if (type_node is PointerTypeNode pn && pn.Pointee is TagTypeNode tn1
-            )
+        if (type_node is PointerTypeNode pn && pn.Pointee is TagTypeNode tn1)
         {
             tn1.QualifiedName.Components = TrimNamespace(
             tn1.QualifiedName.Components, namespaces, class_namespaces);
@@ -543,10 +561,8 @@ public class Program
             if (ast is FunctionSymbolNode fc)
             {
                 TrimTypeNode(fc.Signature.ReturnType, namespaces, class_namespaces);
-
-                TrimParameters(fc.Signature.Params, namespaces, class_namespaces);
-
-                NameParameters(fc.Signature.Params);
+                fc.Signature.Params = TrimParameters(fc.Signature.Params, namespaces, class_namespaces);
+                fc.Signature.Params = NameParameters(fc.Signature.Params);
             }
             else if (ast is VariableSymbolNode vc)
             {

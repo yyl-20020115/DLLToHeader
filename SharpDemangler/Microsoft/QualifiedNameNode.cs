@@ -6,7 +6,7 @@ namespace SharpDemangler.Microsoft;
 public class QualifiedNameNode : Node
 {
     public NodeArrayNode Components;
-
+    public QualifiedNameNode Clone() => From(this.Components);
     public static QualifiedNameNode From(NodeArrayNode nodes)
     {
        return new QualifiedNameNode() { Kind = NodeKind.QualifiedName, Components = nodes };

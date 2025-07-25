@@ -7,7 +7,7 @@ public class TagTypeNode : TypeNode
     public QualifiedNameNode QualifiedName = null;
     public TagKind Tag;
     public NamedIdentifierNode Name = null;
-
+    public TagTypeNode Clone() => new (Tag) { Kind = this.Kind, Name = Name?.Clone(), Quals=this.Quals, QualifiedName=this.QualifiedName?.Clone(),Tag = this.Tag };
     public TagTypeNode(TagKind kind) : base(NodeKind.TagType)
     {
         this.Tag = kind;
@@ -34,7 +34,7 @@ public class TagTypeNode : TypeNode
                 default:
                     break;
             }
-            if (this.Tag!= TagKind.None)
+            if (this.Tag != TagKind.None)
             {
                 os.Append(' ');
             }
