@@ -13,5 +13,5 @@ public struct ExportDirectory
     public uint exportAddrTableRVA;
     public uint namePtrRVA;
     public uint ordinalTableRVA;
-    public ExportAddressName[]? exportAddr_name_t;
+    public ExportAddressName[]? exports;
 }

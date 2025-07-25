@@ -7,7 +7,7 @@ public class Misc
     // returns: string of characters.
     public static string ReadStr(StreamReader inStream, int count)
     {
-        char[] chArray = new char[count];
+        var chArray = new char[count];
         inStream.Read(chArray, 0, count);
         return new string(chArray);
     }
@@ -15,10 +15,7 @@ public class Misc
     // read8_le(): reads an 8bit integer
     // arguments: a StreamReader to read from
     // return: an 8 bit integer
-    public static byte Read8Le(StreamReader inStream)
-    {
-        return (byte)inStream.Read();
-    }
+    public static byte Read8Le(StreamReader inStream) => (byte)inStream.Read();
 
     // read16_le(): reads a 16bit little-endian integer
     // arguments: a StreamReader to read from
@@ -58,12 +55,29 @@ public class Misc
         return value;
     }
 
+    public static DosHeader LoadFrom(string filename)
+    {
+        using var fs = new FileStream(filename, FileMode.Open, FileAccess.Read);
+        using var reader = new BinaryReader(fs,System.Text.Encoding.ASCII);
+        DosHeader dosHeader = new();
+
+        // read headers
+        PEProcessor.ReadDos(reader, ref dosHeader);
+        PEProcessor.ReadPe(reader, ref dosHeader);
+        PEProcessor.ReadDataDir(reader, ref dosHeader);
+        PEProcessor.ReadSections(reader, ref dosHeader);
+        PEProcessor.ReadDataOffset(ref dosHeader);
+        PEProcessor.ReadExportDir(reader, ref dosHeader);
+        PEProcessor.ReadImportDir(reader, ref dosHeader);
+
+        return dosHeader;
+    }
     // print_sections(): prints pe sections info
     // arguments: a dos_header_t object
     // return: none
     public static void PrintSections(DosHeader dosHeader)
     {
-        SectionTable[]? sections = dosHeader.section_table;
+        var sections = dosHeader.section_table;
         Console.WriteLine("\nSections: ");
 
         for (int idx = 0; idx < dosHeader.pe.numberOfSections; idx++)
@@ -82,23 +96,6 @@ public class Misc
         }
     }
 
-    public static DosHeader LoadFrom(string filename)
-    {
-        using var fs = new FileStream(filename, FileMode.Open, FileAccess.Read);
-        using var reader = new BinaryReader(fs,System.Text.Encoding.ASCII);
-        DosHeader dosHeader = new();
-
-        // read headers
-        PEProcessor.ReadDos(reader, ref dosHeader);
-        PEProcessor.ReadPe(reader, ref dosHeader);
-        PEProcessor.ReadDataDir(reader, ref dosHeader);
-        PEProcessor.ReadSections(reader, ref dosHeader);
-        PEProcessor.ReadDataOffset(ref dosHeader);
-        PEProcessor.ReadExportDir(reader, ref dosHeader);
-        PEProcessor.ReadImportDir(reader, ref dosHeader);
-
-        return dosHeader;
-    }
 
     // load_file(): loads and reads pe files in current directory
     // arguments: integer representing argument count, and a string array
@@ -115,7 +112,7 @@ public class Misc
             }
 
             using var reader = new BinaryReader(fs);
-            DosHeader dosHeader = new DosHeader();
+            var dosHeader = new DosHeader();
 
             // read headers
             PEProcessor.ReadDos(reader, ref dosHeader);
@@ -215,14 +212,14 @@ public class Misc
     public static void PrintDataTables(ref DosHeader dosHeader)
     {
         // Data Directories Types
-        string[] dataTable = { "Export Table", "Import Table",
+        string[] dataTable = [ "Export Table", "Import Table",
                                "Resource Table", "Exception Table",
                                "Certificate ", "Base Relocation",
                                "Debug Table", "Architecture",
                                "Global Ptr Table", "TLS Table",
                                "Load Config ", "Bound Import",
                                "Import Address", "Delay Import Desc.",
-                               "CLR Runtime Header", "Reserved, must be zero" };
+                               "CLR Runtime Header", "Reserved, must be zero" ];
 
         uint offset, vAddress, sections, tables;
         sections = dosHeader.pe.numberOfSections;
@@ -271,7 +268,7 @@ public class Misc
 
         for (int i = 0; i < dosHeader.exportDir.numberOfNamePointers; i++)
         {
-            Console.WriteLine($"   {dosHeader.exportDir.exportAddr_name_t![i].names}");
+            Console.WriteLine($"   {dosHeader.exportDir.exports![i].names}");
         }
     }
 

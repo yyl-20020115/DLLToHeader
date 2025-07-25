@@ -10,20 +10,14 @@ public partial class PEProcessor
         return (ushort)(reader.ReadByte() | (reader.ReadByte() << 8));
     }
 
-    public static uint Read32LE(BinaryReader reader)
-    {
-        return (uint)(reader.ReadByte() | (reader.ReadByte() << 8) | (reader.ReadByte() << 16) | (reader.ReadByte() << 24));
-    }
+    public static uint Read32LE(BinaryReader reader) => (uint)(reader.ReadByte() | (reader.ReadByte() << 8) | (reader.ReadByte() << 16) | (reader.ReadByte() << 24));
 
-    public static ulong Read64LE(BinaryReader reader)
-    {
-        return (ulong)(reader.ReadByte() | (reader.ReadByte() << 8) | (reader.ReadByte() << 16) | (reader.ReadByte() << 24) |
+    public static ulong Read64LE(BinaryReader reader) => (ulong)(reader.ReadByte() | (reader.ReadByte() << 8) | (reader.ReadByte() << 16) | (reader.ReadByte() << 24) |
                        (reader.ReadByte() << 32) | (reader.ReadByte() << 40) | (reader.ReadByte() << 48) | (reader.ReadByte() << 56));
-    }
 
     public static string ReadStr(BinaryReader reader, int length)
     {
-        byte[] bytes = reader.ReadBytes(length);
+        var bytes = reader.ReadBytes(length);
         return Encoding.ASCII.GetString(bytes).TrimEnd('\0');
     }
 
@@ -40,7 +34,7 @@ public partial class PEProcessor
             }
         }
 
-        dosHeader.exportDir.exportAddr_name_t = null;
+        dosHeader.exportDir.exports = null;
         dosHeader.section_table = null;
         dosHeader.importDir = null;
     }
@@ -67,7 +61,7 @@ public partial class PEProcessor
     // Function to print PE characteristics
     public static void PrintPeCharacteristics(ushort ch)
     {
-        string[] image_file_str = {
+        string[] image_file_str = [
             "IMAGE_FILE_RELOCS_STRIPPED", "IMAGE_FILE_EXECUTABLE_IMAGE",
             "IMAGE_FILE_LINE_NUMS_STRIPPED", "IMAGE_FILE_LOCAL_SYMS_STRIPPED",
             "IMAGE_FILE_AGGRESSIVE_WS_TRIM", "IMAGE_FILE_LARGE_ADDRESS_AWARE",
@@ -75,12 +69,12 @@ public partial class PEProcessor
             "IMAGE_FILE_DEBUG_STRIPPED", "IMAGE_FILE_REMOVABLE_RUN_FROM_SWAP",
             "IMAGE_FILE_NET_RUN_FROM_SWAP", "IMAGE_FILE_SYSTEM", "IMAGE_FILE_DLL",
             "IMAGE_FILE_UP_SYSTEM_ONLY", "IMAGE_FILE_BYTES_REVERSED_HI"
-        };
+        ];
 
-        ushort[] image_file_arr = {
+        ushort[] image_file_arr = [
             0x0001, 0x0002, 0x0004, 0x0008, 0x0010, 0x0020, 0x0080, 0x0100,
             0x0200, 0x0400, 0x0800, 0x1000, 0x2000, 0x4000, 0x8000
-        };
+        ];
 
         for (int idx = 0; idx < 15; idx++)
         {
@@ -92,7 +86,7 @@ public partial class PEProcessor
     // Function to print DLL characteristics
     public static void PrintDllCharacteristics(ushort ch)
     {
-        string[] image_dll_str = {
+        string[] image_dll_str = [
             "IMAGE_DLLCHARACTERISTICS_HIGH_ENTROPY_VA",
             "IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE",
             "IMAGE_DLLCHARACTERISTICS_FORCE_INTEGRITY",
@@ -104,12 +98,12 @@ public partial class PEProcessor
             "IMAGE_DLLCHARACTERISTICS_WDM_DRIVER",
             "IMAGE_DLLCHARACTERISTICS_GUARD_CF",
             "IMAGE_DLLCHARACTERISTICS_TERMINAL_SERVER_AWARE"
-        };
+        ];
 
-        ushort[] image_dll_arr = {
+        ushort[] image_dll_arr = [
             0x0020, 0x0040, 0x0080, 0x0100, 0x0200, 0x0400, 0x0800, 0x1000,
             0x2000, 0x4000, 0x8000
-        };
+        ];
 
         for (int idx = 0; idx < 11; idx++)
         {
@@ -224,7 +218,7 @@ public partial class PEProcessor
     // Function to print the flags set on a section
     public static void PrintSectionCharacteristics(uint ch)
     {
-        string[] section_flags_str = {
+        string[] section_flags_str = [
             "IMAGE_SCN_TYPE_NO_PAD", "IMAGE_SCN_CNT_CODE", "IMAGE_SCN_CNT_INITIALIZED_DATA",
             "IMAGE_SCN_CNT_UNINITIALIZED_ DATA", "IMAGE_SCN_LNK_OTHER", "IMAGE_SCN_LNK_INFO",
             "IMAGE_SCN_LNK_REMOVE", "IMAGE_SCN_LNK_COMDAT", "IMAGE_SCN_GPREL", "IMAGE_SCN_MEM_PURGEABLE",
@@ -234,15 +228,15 @@ public partial class PEProcessor
             "IMAGE_SCN_ALIGN_512BYTES", "IMAGE_SCN_ALIGN_1024BYTES", "IMAGE_SCN_ALIGN_2048BYTES", "IMAGE_SCN_ALIGN_4096BYTES",
             "IMAGE_SCN_ALIGN_8192BYTES", "IMAGE_SCN_LNK_NRELOC_OVFL", "IMAGE_SCN_MEM_DISCARDABLE", "IMAGE_SCN_MEM_NOT_CACHED",
             "IMAGE_SCN_MEM_NOT_PAGED", "IMAGE_SCN_MEM_SHARED", "IMAGE_SCN_MEM_EXECUTE", "IMAGE_SCN_MEM_READ", "IMAGE_SCN_MEM_WRITE"
-        };
+        ];
 
-        uint[] section_flags_arr = {
+        uint[] section_flags_arr = [
             0x00000008, 0x00000020, 0x00000040, 0x00000080, 0x00000100, 0x00000200, 0x00000800, 0x00001000,
             0x00008000, 0x00020000, 0x00020000, 0x00040000, 0x00080000, 0x00100000, 0x00200000, 0x00300000,
             0x00400000, 0x00500000, 0x00600000, 0x00700000, 0x00800000, 0x00900000, 0x00A00000, 0x00B00000,
             0x00C00000, 0x00D00000, 0x00E00000, 0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000,
             0x20000000, 0x40000000, 0x80000000
-        };
+        ];
 
         for (int i = 0; i < 35; i++)
         {
@@ -441,7 +435,7 @@ public partial class PEProcessor
         tableOffset = (uint)RvaToOffset(dosHeader.pe.numberOfSections,
                                        dosHeader.exportDir.namePtrRVA,
                                        dosHeader.section_table!);
-        dosHeader.exportDir.exportAddr_name_t = new ExportAddressName[tableSize];
+        dosHeader.exportDir.exports = new ExportAddressName[tableSize];
 
         // reading Import table entries (per DLL)
         for (uint idx = 0; idx < tableSize; idx++)
@@ -458,7 +452,7 @@ public partial class PEProcessor
             {
                 name = name.Substring(0, pe); // trim the string to the null terminator
             }
-            dosHeader.exportDir.exportAddr_name_t[idx].names = name;
+            dosHeader.exportDir.exports[idx].names = name;
 
             tableOffset += 4; // after reading 4 bytes, jump to next 4 bytes
         }

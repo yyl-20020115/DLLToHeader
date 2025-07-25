@@ -1,6 +1,4 @@
-﻿using static PEParser.PEProcessor;
-
-namespace PEParser;
+﻿namespace PEParser;
 
 public struct PEHeader
 {

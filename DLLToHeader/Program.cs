@@ -2,7 +2,6 @@
 using SharpDemangler.Common;
 using SharpDemangler.Microsoft;
 using System.Diagnostics;
-using System.Text;
 
 namespace DLLToHeader;
 
@@ -304,9 +303,9 @@ public class Program
                             }
                             else if (pointerTypeNode.Pointee is PointerTypeNode pn)
                             {
-                                 p  = pointerTypeNode = pn.Clone();
-                                 pointerTypeNode.Pointee 
-                                    = NameParameters(new NodeArrayNode { Kind = NodeKind.NodeArray, Nodes = [pn] })?.Nodes?[0] as TypeNode;
+                                p = pointerTypeNode = pn.Clone();
+                                pointerTypeNode.Pointee
+                                   = NameParameters(new NodeArrayNode { Kind = NodeKind.NodeArray, Nodes = [pn] })?.Nodes?[0] as TypeNode;
                             }
                             break;
                         }
@@ -818,7 +817,7 @@ public class Program
         var variables = new HashSet<SymbolNode>();
         var functions = new HashSet<SymbolNode>();
         var plains = new List<SymbolNode>();
-        var namespaces = ExtractExports(header.exportDir.exportAddr_name_t, asts, namespace_classes);
+        var namespaces = ExtractExports(header.exportDir.exports, asts, namespace_classes);
 
         CompileAsts(namespace_classes, class_namespaces, global_functions, class_bases, variables, functions, plains, namespaces, asts);
 
