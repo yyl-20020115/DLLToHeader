@@ -31,7 +31,7 @@ public partial class Program
         var namespace_classes = new Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>>();
         var class_namespaces = new Dictionary<NodeArrayNode, NodeArrayNode>();
 
-        var global_functions = new Dictionary<NodeArrayNode, SymbolNode>();
+        var global_functions = new Dictionary<NodeArrayNode, List<SymbolNode>>();
         var variables = new HashSet<SymbolNode>();
         var functions = new HashSet<SymbolNode>();
         var plains = new List<SymbolNode>();

@@ -38,7 +38,7 @@ public static class FileGenerator
         List<NodeArrayNode> namespaces,
         Dictionary<NodeArrayNode, NodeArrayNode> class_namespaces,
         Dictionary<NodeArrayNode, HashSet<NodeArrayNode>> deps,
-        Dictionary<NodeArrayNode, SymbolNode> global_functions,
+        Dictionary<NodeArrayNode, List<SymbolNode>> global_functions,
         Dictionary<NodeArrayNode, HashSet<NodeArrayNode>> class_bases,
         List<SymbolNode> plains,
         string hdrfile, string libfile)
@@ -81,7 +81,6 @@ public static class FileGenerator
                     Kind = NodeKind.NodeArray,
                     Nodes = [.. ns.Key.Nodes, .. ks.Nodes]
                 };
-                if (!global_functions.ContainsKey(full))
                 {
                     writer.WriteLine($"\tclass {QualifiedNameNode.From(ks)};");
                 }
@@ -94,10 +93,25 @@ public static class FileGenerator
                     Kind = NodeKind.NodeArray,
                     Nodes = [.. ns.Key.Nodes, .. cs.Key.Nodes]
                 };
-                if (!global_functions.ContainsKey(full))
+
+                var publics = cs.Value.Where(v => v is FunctionSymbolNode fs && (fs.Signature.FunctionClass & FuncClass.Public) != 0).ToArray();
+                var protecteds = cs.Value.Where(v => v is FunctionSymbolNode fs && (fs.Signature.FunctionClass & FuncClass.Protected) != 0).ToArray();
+                var privates = cs.Value.Where(v => v is FunctionSymbolNode fs && (fs.Signature.FunctionClass & FuncClass.Private) != 0).ToArray();
+                var variables = cs.Value.Where(v => v is VariableSymbolNode vs).ToList();
+                var values = cs.Value.ToList();
+                var v_function_local = values.Where(v => v is VariableSymbolNode fs && (fs.sc == StorageClass.FunctionLocalStatic)).ToArray();
+                var v_publics = values.Where(v => v is VariableSymbolNode fs && (fs.sc == StorageClass.PublicStatic)).ToArray();
+                var v_protecteds = values.Where(v => v is VariableSymbolNode fs && (fs.sc == StorageClass.ProtectedStatic)).ToArray();
+                var v_privates = values.Where(v => v is VariableSymbolNode fs && (fs.sc == StorageClass.PrivateStatic)).ToArray();
+                var has_deps = class_bases.TryGetValue(full, out var dep_list) && dep_list != null && dep_list.Count > 0;
+                if (publics.Length > 0 || protecteds.Length > 0 || privates.Length > 0
+                    || v_function_local.Length > 0
+                    || v_publics.Length > 0
+                    || v_privates.Length > 0
+                    || has_deps)
                 {
                     writer.WriteLine($"\tclass DLLIMPORT {QualifiedNameNode.From(cs.Key)}");
-                    if (class_bases.TryGetValue(full, out var dep_list) && dep_list.Count > 0)
+                    if (has_deps)
                     {
                         var any = false;
                         foreach (var _dep in dep_list)
@@ -114,64 +128,51 @@ public static class FileGenerator
 
                     writer.WriteLine("\t{");
 
-                    var publics = cs.Value.Where(v => v is FunctionSymbolNode fs && (fs.Signature.FunctionClass & FuncClass.Public) != 0).ToArray();
-                    var protecteds = cs.Value.Where(v => v is FunctionSymbolNode fs && (fs.Signature.FunctionClass & FuncClass.Protected) != 0).ToArray();
-                    var privates = cs.Value.Where(v => v is FunctionSymbolNode fs && (fs.Signature.FunctionClass & FuncClass.Private) != 0).ToArray();
-                    var variables = cs.Value.Where(v => v is VariableSymbolNode vs).ToList();
-
-                    if (variables.Count > 0)
+                    if (v_publics.Length > 0)
                     {
-                        var values = cs.Value.ToList();
-                        var v_function_local = values.Where(v => v is VariableSymbolNode fs && (fs.sc == StorageClass.FunctionLocalStatic)).ToArray();
-                        var v_publics = values.Where(v => v is VariableSymbolNode fs && (fs.sc == StorageClass.PublicStatic)).ToArray();
-                        var v_protecteds = values.Where(v => v is VariableSymbolNode fs && (fs.sc == StorageClass.ProtectedStatic)).ToArray();
-                        var v_privates = values.Where(v => v is VariableSymbolNode fs && (fs.sc & StorageClass.PrivateStatic) != 0 && fs.LocalFunctionName == null).ToArray();
-                        if (v_publics.Length > 0)
+                        writer.WriteLine("\tpublic:");
+                        foreach (VariableSymbolNode vs in v_publics.Cast<VariableSymbolNode>())
                         {
-                            writer.WriteLine("\tpublic:");
-                            foreach (VariableSymbolNode vs in v_publics.Cast<VariableSymbolNode>())
-                            {
-                                AstProcessor.TrimTypeNode(vs.Type, namespaces, class_namespaces);
-                                vs.Name.Components = AstProcessor.GetFullClassLeftPart(vs.Name.Components, namespaces);
-                                vs.sc = StorageClass.None;
-                                writer.WriteLine($"\t\tstatic {vs};");
-                            }
+                            AstProcessor.TrimTypeNode(vs.Type, namespaces, class_namespaces);
+                            vs.Name.Components = AstProcessor.GetFullClassWithinPart(vs.Name.Components, namespaces);
+                            vs.sc = StorageClass.None;
+                            writer.WriteLine($"\t\tstatic {vs};");
                         }
-                        if (v_protecteds.Length > 0)
-                        {
-                            writer.WriteLine("\tprotected:");
-                            foreach (VariableSymbolNode vs in v_protecteds.Cast<VariableSymbolNode>())
-                            {
-                                AstProcessor.TrimTypeNode(vs.Type, namespaces, class_namespaces);
-                                vs.Name.Components = AstProcessor.GetFullClassLeftPart(vs.Name.Components, namespaces);
-                                vs.sc = StorageClass.None;
-                                writer.WriteLine($"\t\tstatic {vs};");
-                            }
-                        }
-                        if (v_privates.Length > 0)
-                        {
-                            writer.WriteLine("\tprivate:");
-                            foreach (VariableSymbolNode vs in v_privates.Cast<VariableSymbolNode>())
-                            {
-                                AstProcessor.TrimTypeNode(vs.Type, namespaces, class_namespaces);
-                                vs.Name.Components = AstProcessor.GetFullClassLeftPart(vs.Name.Components, namespaces);
-                                vs.sc = StorageClass.None;
-                                writer.WriteLine($"\t\tstatic {vs};");
-                            }
-                        }
-                        if (v_function_local.Length > 0)
-                        {
-                            writer.WriteLine("\t//function local static");
-                            foreach (VariableSymbolNode vs in v_function_local.Cast<VariableSymbolNode>())
-                            {
-                                AstProcessor.TrimTypeNode(vs.Type, namespaces, class_namespaces);
-                                //vs.Name.Components = AstProcessor.GetFullClassLeftPart(vs.Name.Components, namespaces);
-                                vs.sc = StorageClass.None;
-                                writer.WriteLine($"\t\t//{vs};");
-                            }
-                        }
-
                     }
+                    if (v_protecteds.Length > 0)
+                    {
+                        writer.WriteLine("\tprotected:");
+                        foreach (VariableSymbolNode vs in v_protecteds.Cast<VariableSymbolNode>())
+                        {
+                            AstProcessor.TrimTypeNode(vs.Type, namespaces, class_namespaces);
+                            vs.Name.Components = AstProcessor.GetFullClassWithinPart(vs.Name.Components, namespaces);
+                            vs.sc = StorageClass.None;
+                            writer.WriteLine($"\t\tstatic {vs};");
+                        }
+                    }
+                    if (v_privates.Length > 0)
+                    {
+                        writer.WriteLine("\tprivate:");
+                        foreach (VariableSymbolNode vs in v_privates.Cast<VariableSymbolNode>())
+                        {
+                            AstProcessor.TrimTypeNode(vs.Type, namespaces, class_namespaces);
+                            vs.Name.Components = AstProcessor.GetFullClassWithinPart(vs.Name.Components, namespaces);
+                            vs.sc = StorageClass.None;
+                            writer.WriteLine($"\t\tstatic {vs};");
+                        }
+                    }
+                    if (v_function_local.Length > 0)
+                    {
+                        writer.WriteLine("\t//function local static");
+                        foreach (VariableSymbolNode vs in v_function_local.Cast<VariableSymbolNode>())
+                        {
+                            AstProcessor.TrimTypeNode(vs.Type, namespaces, class_namespaces);
+                            //vs.Name.Components = AstProcessor.GetFullClassWithinPart(vs.Name.Components, namespaces);
+                            vs.sc = StorageClass.None;
+                            writer.WriteLine($"\t\t//{vs};");
+                        }
+                    }
+
                     if (publics.Length > 0)
                     {
                         writer.WriteLine("\tpublic:");
@@ -202,16 +203,15 @@ public static class FileGenerator
 
                         }
                     }
-
                     writer.WriteLine("\t};");
+                    writer.WriteLine();
                 }
-                else
+            }
+            if (global_functions.TryGetValue(ns.Key, out var fs))
+            {
+                foreach (var gf in fs)
                 {
-                    //function:
-                    foreach (var ts in cs.Value)
-                    {
-                        writer.WriteLine($"\t{ts};");
-                    }
+                    writer.WriteLine($"\t{gf};");
                 }
                 writer.WriteLine();
             }

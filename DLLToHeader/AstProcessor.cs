@@ -10,7 +10,7 @@ public static class AstProcessor
     public static void Compile(
         Dictionary<NodeArrayNode, Dictionary<NodeArrayNode, List<SymbolNode>>> namespace_classes,
         Dictionary<NodeArrayNode, NodeArrayNode> class_namespaces,
-        Dictionary<NodeArrayNode, SymbolNode> global_functions,
+        Dictionary<NodeArrayNode, List<SymbolNode>> global_functions,
         Dictionary<NodeArrayNode, HashSet<NodeArrayNode>> class_bases,
         HashSet<SymbolNode> variables,
         HashSet<SymbolNode> functions,
@@ -36,7 +36,15 @@ public static class AstProcessor
                         {
                             if (FuncClass.Global == (fc.Signature.FunctionClass & FuncClass.Global))
                             {
-                                global_functions[astname] = ast;
+                                var ns = GetNamespacePart(astname, namespaces);
+                                if (global_functions.TryGetValue(ns,out var list))
+                                {
+                                    list.Add(ast);
+                                }
+                                else
+                                {
+                                    global_functions[ns] = [ast];
+                                }
                                 ast.Name.Components = AstProcessor.GetLeftFunctionPart(ast.Name.Components, namespaces);
                             }
                             else
@@ -279,6 +287,27 @@ public static class AstProcessor
         }
         return [];
     }
+    public static NodeArrayNode GetFullClassWithinPart(NodeArrayNode node, List<NodeArrayNode> namespaces)
+    {
+        for (int i = 0; i < namespaces.Count; i++)
+        {
+            if (namespaces[i].Nodes.Length <= node.Nodes.Length)
+            {
+                var taken = node.Nodes.Take(namespaces[i].Nodes.Length);
+                if (Enumerable.SequenceEqual(namespaces[i].Nodes, taken))
+                {
+                    return
+                        new NodeArrayNode()
+                        {
+                            Kind = NodeKind.NodeArray,
+                            Nodes = [.. node.Nodes.Skip(namespaces[i].Nodes.Length)]
+                        };
+                }
+            }
+        }
+        return [];
+    }
+
     public static char GetInitialChar(string text)
     {
         return text.Length switch
@@ -571,9 +600,6 @@ public static class AstProcessor
     }
     public static void TrimTypeNode(TypeNode? type_node, List<NodeArrayNode> namespaces, Dictionary<NodeArrayNode, NodeArrayNode> class_namespaces)
     {
-        if (type_node != null && type_node.ToString().Contains("<"))
-        {
-        }
         if (type_node is PointerTypeNode pn && pn.Pointee is TagTypeNode tn1)
         {
             tn1.QualifiedName.Components = TrimNamespace(
